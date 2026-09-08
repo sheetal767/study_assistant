@@ -77,7 +77,7 @@ st.markdown(f"""
     .badge-done    {{ background: #FFE3EE; color: #E84393; }}
     .card {{
         background: {card_bg}; border-radius: 16px; padding: 24px 26px;
-        box-shadow: 0 4px 18px rgba(20, 20, 43, 0.08);
+        box-shadow: 0 2px 8px rgba(20, 20, 43, 0.06);
         border: 1px solid {card_border}; margin-bottom: 20px;
     }}
     .module-title {{ font-size: 20px; font-weight: 700; color: {text_main}; margin-bottom: 4px; }}
@@ -147,7 +147,7 @@ with st.sidebar:
 
     if st.button("🔄  Start new topic", use_container_width=True):
         for key in ["plan", "module_index", "weak_areas", "stage", "topic",
-                    "current_quiz", "quiz_module", "page"]:
+                    "current_quiz", "quiz_module", "page", "content_cache"]:
             if key in st.session_state:
                 del st.session_state[key]
         st.rerun()
@@ -242,9 +242,12 @@ else:
             st.markdown('<span class="agent-badge badge-content">📖 Content Agent</span>', unsafe_allow_html=True)
             st.markdown(f'<div class="module-title">{modules[idx]}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="module-sub">Topic: {st.session_state.topic}</div>', unsafe_allow_html=True)
-            with st.spinner("Generating explanation..."):
-                explanation = explain_module(modules[idx], st.session_state.topic)
-            st.write(explanation)
+            if "content_cache" not in st.session_state:
+                st.session_state.content_cache = {}
+            if idx not in st.session_state.content_cache:
+                with st.spinner("Generating explanation..."):
+                    st.session_state.content_cache[idx] = explain_module(modules[idx], st.session_state.topic)
+            st.write(st.session_state.content_cache[idx])
             st.button("I'm ready for the quiz →", type="primary",
                        on_click=lambda: st.session_state.update(stage="quiz"))
             st.markdown('</div>', unsafe_allow_html=True)
@@ -300,8 +303,8 @@ else:
                 st.write(f"- {area}")
         if st.button("Start a new topic", type="primary"):
             for key in ["plan", "module_index", "weak_areas", "stage", "topic",
-                        "current_quiz", "quiz_module", "page"]:
+                        "current_quiz", "quiz_module", "page", "content_cache"]:
                 if key in st.session_state:
                     del st.session_state[key]
             st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
