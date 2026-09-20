@@ -12,13 +12,16 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 MODEL_NAME = "gemini-3.6-flash"
 
+# Capped since this only needs to return a small JSON list of questions.
+GENERATION_CONFIG = genai.types.GenerationConfig(max_output_tokens=600)
+
 
 def generate_quiz(module_name: str, num_questions: int = 3) -> list[dict]:
     """
     Returns a list of dicts, each like:
     {"question": "...", "options": ["A", "B", "C", "D"], "correct_index": 0}
     """
-    model = genai.GenerativeModel(MODEL_NAME)
+    model = genai.GenerativeModel(MODEL_NAME, generation_config=GENERATION_CONFIG)
     prompt = f"""Create {num_questions} multiple-choice quiz questions about
 "{module_name}" for a college student.
 Respond ONLY with a JSON list, no other text, in this exact format:
