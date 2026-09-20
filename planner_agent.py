@@ -15,13 +15,17 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 # current available free model name and swap it in here.
 MODEL_NAME = "gemini-3.6-flash"
 
+# Keeping the response short (it's just a JSON list of module names) makes
+# the AI reply faster, which matters most on mobile connections.
+GENERATION_CONFIG = genai.types.GenerationConfig(max_output_tokens=300)
+
 
 def create_study_plan(topic: str, weak_areas: list[str] = None) -> list[str]:
     """
     Returns a list of module names (strings) for the given topic.
     If weak_areas is given, adds extra modules focused on those.
     """
-    model = genai.GenerativeModel(MODEL_NAME)
+    model = genai.GenerativeModel(MODEL_NAME, generation_config=GENERATION_CONFIG)
     weak_note = ""
     if weak_areas:
         weak_note = (
