@@ -10,6 +10,24 @@ from quiz_agent import generate_quiz, grade_answers
 
 st.set_page_config(page_title="AI Study Assistant", page_icon="📚", layout="centered")
 
+# ---------------------------------------------------------------------------
+# Cached wrappers: if someone already asked about the same topic/module
+# before, reuse that answer instantly instead of waiting on the AI again.
+# This cache is shared across ALL visitors, not just one session.
+# ---------------------------------------------------------------------------
+@st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
+def cached_study_plan(topic: str, weak_areas_tuple: tuple):
+    weak_areas = list(weak_areas_tuple) if weak_areas_tuple else None
+    return create_study_plan(topic, weak_areas=weak_areas)
+
+@st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
+def cached_explain_module(module_name: str, topic: str):
+    return explain_module(module_name, topic)
+
+@st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
+def cached_generate_quiz(module_name: str):
+    return generate_quiz(module_name)
+
 # ---- Persistent stats + dark mode (NOT cleared when starting a new topic) ----
 if "stats" not in st.session_state:
     st.session_state.stats = {"topics": 0, "quizzes": 0, "total_score": 0, "total_possible": 0}
@@ -221,9 +239,9 @@ else:
         st.markdown('<div class="module-sub">The Planner Agent will break it into bite-sized modules.</div>', unsafe_allow_html=True)
         topic = st.text_input("Topic", placeholder="e.g. DBMS Basics", label_visibility="collapsed")
         if st.button("Start studying →", type="primary") and topic.strip():
-            with st.spinner("Planning your study path..."):
+            with st.spinner("Planning your study path... (usually 10-15 sec)"):
                 st.session_state.topic = topic
-                st.session_state.plan = create_study_plan(topic)
+                st.session_state.plan = cached_study_plan(topic, tuple())
                 st.session_state.module_index = 0
                 st.session_state.stage = "content"
                 st.session_state.stats["topics"] += 1
@@ -245,8 +263,8 @@ else:
             if "content_cache" not in st.session_state:
                 st.session_state.content_cache = {}
             if idx not in st.session_state.content_cache:
-                with st.spinner("Generating explanation..."):
-                    st.session_state.content_cache[idx] = explain_module(modules[idx], st.session_state.topic)
+                with st.spinner("Generating explanation... (usually 10-15 sec)"):
+                    st.session_state.content_cache[idx] = cached_explain_module(modules[idx], st.session_state.topic)
             st.write(st.session_state.content_cache[idx])
             st.button("I'm ready for the quiz →", type="primary",
                        on_click=lambda: st.session_state.update(stage="quiz"))
@@ -256,8 +274,8 @@ else:
         idx = st.session_state.module_index
         module_name = st.session_state.plan[idx]
         if "current_quiz" not in st.session_state or st.session_state.get("quiz_module") != module_name:
-            with st.spinner("Generating quiz..."):
-                st.session_state.current_quiz = generate_quiz(module_name)
+            with st.spinner("Generating quiz... (usually 10-15 sec)"):
+                st.session_state.current_quiz = cached_generate_quiz(module_name)
                 st.session_state.quiz_module = module_name
         quiz = st.session_state.current_quiz
         answers = []
@@ -280,8 +298,8 @@ else:
                 st.session_state.weak_areas.append(module_name)
                 with st.spinner("Adjusting your study plan..."):
                     remaining = st.session_state.plan[idx + 1:]
-                    new_modules = create_study_plan(
-                        st.session_state.topic, weak_areas=st.session_state.weak_areas
+                    new_modules = cached_study_plan(
+                        st.session_state.topic, tuple(st.session_state.weak_areas)
                     )
                     st.session_state.plan = st.session_state.plan[: idx + 1] + new_modules + remaining
             else:
@@ -308,3 +326,5 @@ else:
                     del st.session_state[key]
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
+    
+    
