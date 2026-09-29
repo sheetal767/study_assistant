@@ -1,169 +1,862 @@
 """
-PLANNER AGENT
-Takes a topic (e.g. "DBMS Basics") and
-breaks it into 3-5 learning modules.
-Can also be called again with "weak_areas"
-to adjust the plan.
+MAIN APP
+Wires the Planner, Content, and Quiz agents
+together into a Streamlit website.
+Run with: streamlit run app.py
 """
 
-import os
-import json
-import google.generativeai as genai
-from dotenv import load_dotenv
+import streamlit as st
+from planner_agent import create_study_plan, create_remedial_modules
+from content_agent import explain_module
+from quiz_agent import generate_quiz, grade_answers
 
-load_dotenv()
+st.set_page_config(page_title="AI Study Assistant", page_icon="📚",
+                   layout="centered")
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# -----------------------------------------
+# ----------------------------------
+# Cached wrappers: if someone already asked
+# about the same topic/module
+# before, reuse that answer instantly
+# instead of waiting on the AI again.
+# This cache is shared across ALL visitors,
+# not just one session.
+# -----------------------------------------
+# ----------------------------------
+@st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
+def cached_study_plan(topic: str, weak_areas_tuple: tuple):
+    weak_areas = list(weak_areas_tuple) if weak_areas_tuple else None
+    return create_study_plan(topic, weak_areas=weak_areas)
 
-# NOTE: if this model name errors out,
-# check aistudio.google.com for the
-# current available free model name and
-# swap it in here.
-MODEL_NAME = "gemini-3.6-flash"
 
-# Keeping the response short (it's just a
-# JSON list of module names) makes
-# the AI reply faster, which matters most
-# on mobile connections.
-GENERATION_CONFIG = genai.types.GenerationConfig(
-    max_output_tokens=600
-)
+@st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
+def cached_explain_module(module_name: str, topic: str):
+    return explain_module(module_name, topic)
 
 
-def create_study_plan(topic: str, weak_areas: list[str] = None) -> list[str]:
-    """
-    Returns a list of module names
-    (strings) for the given topic.
-    If weak_areas is given, adds extra
-    modules focused on those.
-    """
+@st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
+def cached_generate_quiz(module_name: str):
+    return generate_quiz(module_name)
 
-    model = genai.GenerativeModel(
-        MODEL_NAME,
-        generation_config=GENERATION_CONFIG
+
+@st.cache_data(ttl=60 * 60 * 24, show_spinner=False)
+def cached_remedial_modules(topic: str, weak_areas_tuple: tuple):
+    return create_remedial_modules(topic, list(weak_areas_tuple))
+
+
+# ---- Persistent stats + dark mode (NOT
+# cleared when starting a new topic) ----
+if "stats" not in st.session_state:
+    st.session_state.stats = {"topics": 0,
+                              "quizzes": 0, "total_score": 0,
+                              "total_possible": 0}
+
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = False
+
+DARK = st.session_state.dark_mode
+
+
+# -----------------------------------------
+# ----------------------------------
+# Custom styling (switches based on dark
+# mode)
+# -----------------------------------------
+# ----------------------------------
+if DARK:
+    bg = "linear-gradient(180deg, #14121F 0%, #1A1730 100%)"
+    card_bg = "#211D38"
+    text_main = "#EDEBFA"
+    text_sub = "#9C97BE"
+    card_border = "#2E2A4A"
+else:
+    bg = "linear-gradient(180deg, #f7f5ff 0%, #ffffff 35%)"
+    card_bg = "white"
+    text_main = "#1a1a2e"
+    text_sub = "#8a8a9e"
+    card_border = "#F0EEFB"
+
+
+st.markdown(f"""
+<style>
+    .stApp {{ background: {bg}; }}
+    .block-container {{ max-width: 780px; padding-top: 1.5rem; }}
+    section[data-testid="stSidebar"] {{ background: #1E1B3A; }}
+    section[data-testid="stSidebar"] * {{ color: #E8E6FA !important; }}
+
+    .sidebar-logo {{
+        font-size: 20px;
+        font-weight: 800;
+        color: white !important;
+        margin-bottom: 2px;
+    }}
+
+    .sidebar-sub {{
+        font-size: 12px;
+        opacity: 0.7;
+        margin-bottom: 18px;
+    }}
+
+    div[data-testid="stSidebar"] div.stButton > button {{
+        background: transparent;
+        border: 1px solid rgba(255,255,255,0.12);
+        text-align: left;
+        width: 100%;
+        margin-bottom: 6px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }}
+
+    div[data-testid="stSidebar"] div.stButton > button:hover {{
+        background: rgba(255,255,255,0.1);
+        border-color: rgba(255,255,255,0.3);
+        transform: translateX(2px);
+    }}
+
+    .stat-box {{
+        background: rgba(255,255,255,0.06);
+        border-radius: 10px;
+        padding: 10px 12px;
+        margin-bottom: 6px;
+        font-size: 13px;
+    }}
+
+    @keyframes fadeInUp {{
+        from {{ opacity: 0; transform: translateY(10px); }}
+        to {{ opacity: 1; transform: translateY(0); }}
+    }}
+
+    .hero, .card {{
+        animation: fadeInUp 0.45s ease;
+    }}
+
+    .hero {{
+        background: linear-gradient(135deg, #6C5CE7 0%, #8E7CFF 100%);
+        border-radius: 20px;
+        padding: 28px 32px;
+        color: white;
+        margin-bottom: 28px;
+        box-shadow: 0 10px 30px rgba(108, 92, 231, 0.25);
+    }}
+
+    .hero h1 {{
+        font-size: 26px;
+        margin: 0 0 6px 0;
+        color: white;
+    }}
+
+    .hero p {{
+        margin: 0;
+        opacity: 0.9;
+        font-size: 15px;
+    }}
+
+    .agent-badge {{
+        display: inline-block;
+        padding: 4px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 600;
+        margin-bottom: 14px;
+    }}
+
+    .badge-planner {{
+        background: #E7E3FF;
+        color: #6C5CE7;
+    }}
+
+    .badge-content {{
+        background: #DFF6E8;
+        color: #1AA260;
+    }}
+
+    .badge-quiz {{
+        background: #FFE9D6;
+        color: #E67E22;
+    }}
+
+    .badge-done {{
+        background: #FFE3EE;
+        color: #E84393;
+    }}
+
+    .card {{
+        background: {card_bg};
+        border-radius: 16px;
+        padding: 24px 26px;
+        box-shadow: 0 2px 8px rgba(20, 20, 43, 0.06);
+        border: 1px solid {card_border};
+        margin-bottom: 20px;
+    }}
+
+    .module-title {{
+        font-size: 20px;
+        font-weight: 700;
+        color: {text_main};
+        margin-bottom: 4px;
+    }}
+
+    .module-sub {{
+        color: {text_sub};
+        font-size: 13px;
+        margin-bottom: 18px;
+    }}
+
+    .plan-row {{
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid {card_border};
+        font-size: 15px;
+        color: {text_main};
+    }}
+
+    div.stButton > button {{
+        border-radius: 10px;
+        font-weight: 600;
+        border: none;
+        padding: 0.55rem 1.2rem;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }}
+
+    div.stButton > button:hover {{
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(108,92,231,0.25);
+    }}
+
+    div.stButton > button[kind="primary"] {{
+        background: #6C5CE7;
+    }}
+
+    div[data-testid="stProgress"] > div > div > div {{
+        transition: width 0.6s ease;
+    }}
+
+    [data-testid="stMarkdownContainer"] p {{
+        color: {text_main};
+    }}
+</style>
+""", unsafe_allow_html=True)
+
+
+# ---- Session state setup ----
+if "plan" not in st.session_state:
+    st.session_state.plan = None
+    st.session_state.module_index = 0
+    st.session_state.weak_areas = []
+    st.session_state.stage = "topic_input"
+
+if "page" not in st.session_state:
+    st.session_state.page = "Study"
+
+
+# -----------------------------------------
+# ----------------------------------
+# Sidebar navigation
+# -----------------------------------------
+# ----------------------------------
+with st.sidebar:
+    st.markdown(
+        '<div class="sidebar-logo">📚 MultiAgent</div>',
+        unsafe_allow_html=True
     )
 
-    weak_note = ""
+    st.markdown(
+        '<div class="sidebar-sub">Study Assistant</div>',
+        unsafe_allow_html=True
+    )
 
-    if weak_areas:
-        weak_note = (
-            f"The student is weak in: {', '.join(weak_areas)}. "
-            "Add 1-2 extra focused modules "
-            "for these before moving on."
+    if st.button("🏠  Study", use_container_width=True):
+        st.session_state.page = "Study"
+        st.rerun()
+
+    if st.button("📋  My Plan", use_container_width=True):
+        st.session_state.page = "My Plan"
+        st.rerun()
+
+    if st.button("📊  Progress", use_container_width=True):
+        st.session_state.page = "Progress"
+        st.rerun()
+
+    st.markdown("---")
+
+    dark_label = "☀️  Light mode" if DARK else "🌙  Dark mode"
+
+    if st.button(dark_label, use_container_width=True):
+        st.session_state.dark_mode = not st.session_state.dark_mode
+        st.rerun()
+
+    st.markdown("---")
+
+    # ---- Persistent stats block ----
+    s = st.session_state.stats
+
+    avg = round(
+        s["total_score"] / s["total_possible"] * 100
+    ) if s["total_possible"] else 0
+
+    st.markdown(
+        f'<div class="stat-box">📚 Topics studied: '
+        f'<b>{s["topics"]}</b></div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        f'<div class="stat-box">📝 Quizzes taken: '
+        f'<b>{s["quizzes"]}</b></div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        f'<div class="stat-box">🎯 Avg score: '
+        f'<b>{avg}%</b></div>',
+        unsafe_allow_html=True
+    )
+
+    if st.session_state.plan:
+        done = st.session_state.module_index
+        total = len(st.session_state.plan)
+
+        st.caption(
+            f"Current topic: "
+            f"{st.session_state.get('topic', '—')}"
         )
 
-    prompt = f"""You are an educational
-planning assistant.
+        st.progress(
+            min(done / total, 1.0) if total else 0,
+            text=f"{done}/{total} modules"
+        )
 
-Break the topic "{topic}" into 3 to 5 clear
-learning modules, ordered from
-easiest to hardest. {weak_note}
+    if st.button("🔄  Start new topic", use_container_width=True):
+        for key in [
+            "plan",
+            "module_index",
+            "weak_areas",
+            "stage",
+            "topic",
+            "current_quiz",
+            "quiz_module",
+            "page",
+            "content_cache"
+        ]:
+            if key in st.session_state:
+                del st.session_state[key]
 
-Respond ONLY with a JSON list of module
-name strings, nothing else.
+        st.rerun()
 
-Example format: ["Module 1 name", "Module 2 name", "Module 3 name"]
-"""
 
-    response = model.generate_content(
-        prompt,
-        request_options={"timeout": 30},
+# -----------------------------------------
+# ----------------------------------
+# Page: My Plan
+# -----------------------------------------
+# ----------------------------------
+if st.session_state.page == "My Plan":
+    st.markdown(
+        '<div class="card">',
+        unsafe_allow_html=True
     )
 
-    text = response.text.strip()
-
-    # Clean up if the model wraps it in
-    # ```json fences
-    text = text.replace("```json", "").replace("```", "").strip()
-
-    try:
-        modules = json.loads(text)
-
-    except json.JSONDecodeError:
-        # Fallback: try to salvage a comma-separated list even from
-        # truncated/broken JSON (e.g. "[\"A\", \"B\"" with no closing bracket),
-        # instead of showing the raw broken text as a module name.
-
-        cleaned = text.strip().lstrip("[").rstrip("]").rstrip(",")
-
-        parts = [
-            p.strip().strip('"').strip("'")
-            for p in cleaned.split(",")
-        ]
-
-        modules = [
-            p for p in parts
-            if p and not p.startswith("{") and len(p) < 100
-        ]
-
-        if not modules:
-            modules = [f"Overview of {topic}"]
-
-    return modules
-
-
-def create_remedial_modules(topic: str, weak_areas: list[str]) -> list[str]:
-    """
-    Returns just 1-2 SHORT extra practice
-    module names focused on the
-    student's weak areas — NOT a full new
-    curriculum. Use this (not
-    create_study_plan) when a student fails
-    a quiz and needs targeted
-    extra practice before moving on.
-    """
-
-    model = genai.GenerativeModel(
-        MODEL_NAME,
-        generation_config=GENERATION_CONFIG
+    st.markdown(
+        '<span class="agent-badge badge-planner">'
+        '🧭 Planner Agent</span>',
+        unsafe_allow_html=True
     )
 
-    prompt = f"""A student studying "
-{topic}" is struggling with: {', '.join(weak_areas)}.
+    if not st.session_state.plan:
+        st.markdown(
+            '<div class="module-title">No study plan yet</div>',
+            unsafe_allow_html=True
+        )
 
-Suggest 1 to 2 SHORT extra practice module
-names to help specifically with
-this weak area. Do NOT design a full course
-— just short, focused revision
-modules.
+        st.markdown(
+            '<div class="module-sub">'
+            'Go to Study and enter a topic to generate one.'
+            '</div>',
+            unsafe_allow_html=True
+        )
 
-Respond ONLY with a JSON list of module
-name strings.
+    else:
+        st.markdown(
+            f'<div class="module-title">'
+            f'Plan for: {st.session_state.topic}</div>',
+            unsafe_allow_html=True
+        )
 
-Example: ["Extra Practice: Primary Keys"]
-"""
+        for i, mod in enumerate(st.session_state.plan):
+            icon = (
+                "✅"
+                if i < st.session_state.module_index
+                else (
+                    "👉"
+                    if i == st.session_state.module_index
+                    else "⬜"
+                )
+            )
 
-    response = model.generate_content(
-        prompt,
-        request_options={"timeout": 30}
+            st.markdown(
+                f'<div class="plan-row">{icon} '
+                f'<span>{mod}</span></div>',
+                unsafe_allow_html=True
+            )
+
+        plan_text = (
+            f"Study Plan: {st.session_state.topic}\n\n"
+            + "\n".join(
+                f"{i+1}. {mod}"
+                for i, mod in enumerate(st.session_state.plan)
+            )
+        )
+
+        st.download_button(
+            "⬇️  Download plan as .txt",
+            data=plan_text,
+            file_name=f"{st.session_state.topic.replace(' ', '_')}_study_plan.txt",
+            mime="text/plain",
+        )
+
+    st.markdown(
+        '</div>',
+        unsafe_allow_html=True
     )
 
-    text = response.text.strip().replace(
-        "```json", ""
-    ).replace("```", "").strip()
 
-    try:
-        modules = json.loads(text)
+# -----------------------------------------
+# ----------------------------------
+# Page: Progress
+# -----------------------------------------
+# ----------------------------------
+elif st.session_state.page == "Progress":
+    st.markdown(
+        '<div class="card">',
+        unsafe_allow_html=True
+    )
 
-        if not isinstance(modules, list) or not modules:
-            raise ValueError
+    st.markdown(
+        '<span class="agent-badge badge-quiz">'
+        '📊 Progress</span>',
+        unsafe_allow_html=True
+    )
 
-    except (json.JSONDecodeError, ValueError):
-        # Safe fallback: one generic extra-practice module, never the whole plan
-        modules = [f"Extra Practice: {weak_areas[-1]}"]
+    st.markdown(
+        '<div class="module-title">'
+        'Your progress so far</div>',
+        unsafe_allow_html=True
+    )
 
-    return modules
+    s = st.session_state.stats
+
+    avg = round(
+        s["total_score"] / s["total_possible"] * 100
+    ) if s["total_possible"] else 0
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("Topics studied", s["topics"])
+    c2.metric("Quizzes taken", s["quizzes"])
+    c3.metric("Avg score", f"{avg}%")
+
+    if st.session_state.plan:
+        total = len(st.session_state.plan)
+        done = st.session_state.module_index
+
+        st.markdown(
+            f'<div class="module-sub">'
+            f'Current topic: {done}/{total} modules done</div>',
+            unsafe_allow_html=True
+        )
+
+        if st.session_state.weak_areas:
+            st.markdown(
+                '<div class="module-sub">'
+                'Modules that needed extra practice:</div>',
+                unsafe_allow_html=True
+            )
+
+            for area in set(st.session_state.weak_areas):
+                st.write(f"- {area}")
+
+    else:
+        st.markdown(
+            '<div class="module-sub">'
+            'Start a topic to see live progress here.</div>',
+            unsafe_allow_html=True
+        )
+
+    st.markdown(
+        '</div>',
+        unsafe_allow_html=True
+    )
 
 
-if __name__ == "__main__":
-    # Simple test when you run: python
-    # planner_agent.py
+# -----------------------------------------
+# ----------------------------------
+# Page: Study — the main agent flow
+# -----------------------------------------
+# ----------------------------------
+else:
+    st.markdown("""
+    <div class="hero">
+        <h1>📚 Multi-Agent AI Study Assistant</h1>
+        <p>Your AI study team — Planner,
+        Content, and Quiz agents — working together
+        to help you learn smarter.</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-    test_topic = "DBMS Basics"
+    if st.session_state.stage == "topic_input":
+        st.markdown(
+            '<div class="card">',
+            unsafe_allow_html=True
+        )
 
-    plan = create_study_plan(test_topic)
+        st.markdown(
+            '<span class="agent-badge badge-planner">'
+            '🧭 Planner Agent</span>',
+            unsafe_allow_html=True
+        )
 
-    print(f"Study plan for '{test_topic}':")
+        st.markdown(
+            '<div class="module-title">'
+            'What do you want to study today?</div>',
+            unsafe_allow_html=True
+        )
 
-    for i, module in enumerate(plan, 1):
-        print(f"{i}. {module}")
+        st.markdown(
+            '<div class="module-sub">'
+            'The Planner Agent will break it into bite-sized modules.'
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+        topic = st.text_input(
+            "Topic",
+            placeholder="e.g. DBMS Basics",
+            label_visibility="collapsed"
+        )
+
+        if st.button(
+            "Start studying →",
+            type="primary"
+        ) and topic.strip():
+
+            try:
+                with st.spinner(
+                    "Planning your study path... (usually 10-15 sec)"
+                ):
+                    st.session_state.topic = topic
+                    st.session_state.plan = cached_study_plan(
+                        topic,
+                        tuple()
+                    )
+                    st.session_state.module_index = 0
+                    st.session_state.stage = "content"
+                    st.session_state.stats["topics"] += 1
+
+                st.rerun()
+
+            except Exception:
+                st.error(
+                    "⏱️ That took too long or the connection dropped. "
+                    "This usually happens with a weak/unstable internet connection. "
+                    "Please check your internet and try again."
+                )
+
+                st.button("🔄 Try again")
+
+        st.markdown(
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+
+    elif st.session_state.stage == "content":
+        modules = st.session_state.plan
+        idx = st.session_state.module_index
+
+        if idx >= len(modules):
+            st.session_state.stage = "done"
+            st.rerun()
+
+        else:
+            st.progress(
+                idx / len(modules),
+                text=f"Module {idx + 1} of {len(modules)}"
+            )
+
+            st.markdown(
+                '<div class="card">',
+                unsafe_allow_html=True
+            )
+
+            st.markdown(
+                '<span class="agent-badge badge-content">'
+                '📖 Content Agent</span>',
+                unsafe_allow_html=True
+            )
+
+            st.markdown(
+                f'<div class="module-title">'
+                f'{modules[idx]}</div>',
+                unsafe_allow_html=True
+            )
+
+            st.markdown(
+                f'<div class="module-sub">'
+                f'Topic: {st.session_state.topic}</div>',
+                unsafe_allow_html=True
+            )
+
+            if "content_cache" not in st.session_state:
+                st.session_state.content_cache = {}
+
+            if idx not in st.session_state.content_cache:
+                try:
+                    with st.spinner(
+                        "Generating explanation... (usually 10-15 sec)"
+                    ):
+                        st.session_state.content_cache[idx] = (
+                            cached_explain_module(
+                                modules[idx],
+                                st.session_state.topic
+                            )
+                        )
+
+                except Exception:
+                    st.error(
+                        "⏱️ That took too long or something went wrong "
+                        "getting the explanation. "
+                        "Please check your internet and try again."
+                    )
+
+                    st.button(
+                        "🔄 Try again",
+                        key="retry_content"
+                    )
+
+                    st.stop()
+
+            st.write(
+                st.session_state.content_cache[idx]
+            )
+
+            st.button(
+                "I'm ready for the quiz →",
+                type="primary",
+                on_click=lambda: st.session_state.update(
+                    stage="quiz"
+                )
+            )
+
+            st.markdown(
+                '</div>',
+                unsafe_allow_html=True
+            )
+
+
+    elif st.session_state.stage == "quiz":
+        idx = st.session_state.module_index
+        module_name = st.session_state.plan[idx]
+
+        if (
+            "current_quiz" not in st.session_state
+            or st.session_state.get("quiz_module") != module_name
+        ):
+            try:
+                with st.spinner(
+                    "Generating quiz... (usually 10-15 sec)"
+                ):
+                    st.session_state.current_quiz = (
+                        cached_generate_quiz(module_name)
+                    )
+                    st.session_state.quiz_module = module_name
+
+            except Exception:
+                st.error(
+                    "⏱️ That took too long or something went wrong "
+                    "generating the quiz. "
+                    "Please check your internet and try again."
+                )
+
+                st.button(
+                    "🔄 Try again",
+                    key="retry_quiz"
+                )
+
+                st.stop()
+
+        if not st.session_state.current_quiz:
+            st.error(
+                "⚠️ The quiz didn't generate properly. Please try again."
+            )
+
+            if st.button(
+                "🔄 Try again",
+                key="retry_quiz_empty"
+            ):
+                del st.session_state["current_quiz"]
+                st.rerun()
+
+            st.stop()
+
+        quiz = st.session_state.current_quiz
+        answers = []
+
+        st.markdown(
+            '<div class="card">',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            '<span class="agent-badge badge-quiz">'
+            '📝 Quiz Agent</span>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            f'<div class="module-title">'
+            f'Quiz: {module_name}</div>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            '<div class="module-sub">'
+            'Answer all questions, then submit.</div>',
+            unsafe_allow_html=True
+        )
+
+        for i, q in enumerate(quiz):
+            answer = st.radio(
+                q["question"],
+                q["options"],
+                key=f"q_{i}",
+                index=None
+            )
+
+            answers.append(
+                q["options"].index(answer)
+                if answer
+                else -1
+            )
+
+        if st.button(
+            "Submit Quiz",
+            type="primary"
+        ):
+            result = grade_answers(
+                quiz,
+                answers
+            )
+
+            st.session_state.stats["quizzes"] += 1
+            st.session_state.stats["total_score"] += result["score"]
+            st.session_state.stats["total_possible"] += result["total"]
+
+            score_col1, score_col2 = st.columns(2)
+
+            score_col1.metric(
+                "Score",
+                f"{result['score']} / {result['total']}"
+            )
+
+            if result["weak"]:
+                score_col2.warning(
+                    "Needs more practice"
+                )
+
+                st.session_state.weak_areas.append(
+                    module_name
+                )
+
+                with st.spinner(
+                    "Adding extra practice modules... (usually 10-15 sec)"
+                ):
+                    remaining = st.session_state.plan[idx + 1:]
+
+                    new_modules = cached_remedial_modules(
+                        st.session_state.topic,
+                        tuple(st.session_state.weak_areas)
+                    )
+
+                    st.session_state.plan = (
+                        st.session_state.plan[: idx + 1]
+                        + new_modules
+                        + remaining
+                    )
+
+            else:
+                score_col2.success(
+                    "Nice work!"
+                )
+
+            st.session_state.module_index += 1
+
+            del st.session_state["current_quiz"]
+
+            st.session_state.stage = "content"
+
+            st.button(
+                "Continue →",
+                type="primary"
+            )
+
+        st.markdown(
+            '</div>',
+            unsafe_allow_html=True
+        )
+
+
+    elif st.session_state.stage == "done":
+        st.balloons()
+
+        st.markdown(
+            '<div class="card">',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            '<span class="agent-badge badge-done">'
+            '🎉 All done</span>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            '<div class="module-title">'
+            'You\'ve completed the full study plan!</div>',
+            unsafe_allow_html=True
+        )
+
+        if st.session_state.weak_areas:
+            st.markdown(
+                '<div class="module-sub">'
+                'Areas you needed extra practice on:</div>',
+                unsafe_allow_html=True
+            )
+
+            for area in set(st.session_state.weak_areas):
+                st.write(f"- {area}")
+
+        if st.button(
+            "Start a new topic",
+            type="primary"
+        ):
+            for key in [
+                "plan",
+                "module_index",
+                "weak_areas",
+                "stage",
+                "topic",
+                "current_quiz",
+                "quiz_module",
+                "page",
+                "content_cache"
+            ]:
+                if key in st.session_state:
+                    del st.session_state[key]
+
+            st.rerun()
+
+        st.markdown(
+            '</div>',
+            unsafe_allow_html=True
+        )
