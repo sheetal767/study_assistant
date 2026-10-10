@@ -37,11 +37,17 @@ def cached_generate_quiz(module_name: str):
 def cached_remedial_modules(topic: str, weak_areas_tuple: tuple):
     return create_remedial_modules(topic, list(weak_areas_tuple))
 
+import time
+
 # ---- Persistent stats + dark mode (NOT cleared when starting a new topic) ----
 if "stats" not in st.session_state:
     st.session_state.stats = {"topics": 0, "quizzes": 0, "total_score": 0, "total_possible": 0}
 if "dark_mode" not in st.session_state:
     st.session_state.dark_mode = False
+if "session_start" not in st.session_state:
+    st.session_state.session_start = time.time()
+if "topic_history" not in st.session_state:
+    st.session_state.topic_history = []  # [{topic, modules, score, total}, ...]
 
 DARK = st.session_state.dark_mode
 
@@ -205,6 +211,29 @@ st.markdown(f"""
     [data-testid="stMarkdownContainer"] p {{ color: {text_main}; }}
     div[data-testid="stAlert"] {{ border-radius: 12px; }}
 
+    /* ---------- Module dot strip ---------- */
+    .dot-strip {{ display: flex; gap: 6px; margin: 2px 0 20px 0; flex-wrap: wrap; }}
+    .dot {{ width: 10px; height: 10px; border-radius: 50%; }}
+    .dot-done {{ background: {GREEN}; }}
+    .dot-current {{ background: {ACCENT}; box-shadow: 0 0 0 3px {card_bg_soft}; }}
+    .dot-upcoming {{ background: {card_border}; }}
+
+    /* ---------- Quiz review ---------- */
+    .review-row {{
+        border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; font-size: 13.5px;
+        border: 1px solid {card_border};
+    }}
+    .review-correct {{ background: #EAFBF1; color: #0E7A42; }}
+    .review-wrong {{ background: #FFF1F0; color: #C0392B; }}
+
+    /* ---------- History cards ---------- */
+    .history-card {{
+        background: {card_bg_soft}; border: 1px solid {card_border}; border-radius: 12px;
+        padding: 12px 14px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+    }}
+    .history-topic {{ font-weight: 700; font-size: 14px; color: {text_main}; }}
+    .history-score {{ font-size: 13px; font-weight: 700; color: {ACCENT}; }}
+
     /* ---------- Mobile tweaks ---------- */
     @media (max-width: 600px) {{
         .card {{ padding: 18px 18px; }}
@@ -259,6 +288,9 @@ with st.sidebar:
     st.markdown(f'<div class="stat-box">📚 Topics studied: <b>{s["topics"]}</b></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="stat-box">📝 Quizzes taken: <b>{s["quizzes"]}</b></div>', unsafe_allow_html=True)
     st.markdown(f'<div class="stat-box">🎯 Avg score: <b>{avg}%</b></div>', unsafe_allow_html=True)
+    elapsed_min = int((time.time() - st.session_state.session_start) / 60)
+    elapsed_label = f"{elapsed_min} min" if elapsed_min < 60 else f"{elapsed_min // 60}h {elapsed_min % 60}m"
+    st.markdown(f'<div class="stat-box">⏱️ Time studying: <b>{elapsed_label}</b></div>', unsafe_allow_html=True)
 
     if st.session_state.plan:
         done = st.session_state.module_index
@@ -268,7 +300,7 @@ with st.sidebar:
 
     if st.button("🔄  Start new topic", use_container_width=True, key="nav_reset"):
         for key in ["plan", "module_index", "weak_areas", "stage", "topic",
-                    "current_quiz", "quiz_module", "page", "content_cache"]:
+                    "current_quiz", "quiz_module", "page", "content_cache", "logged_to_history"]:
             if key in st.session_state:
                 del st.session_state[key]
         st.rerun()
@@ -309,13 +341,45 @@ if st.session_state.page == "My Plan":
         plan_text = f"Study Plan: {st.session_state.topic}\n\n" + "\n".join(
             f"{i+1}. {mod}" for i, mod in enumerate(st.session_state.plan)
         )
-        st.download_button(
-            "⬇️  Download plan as .txt",
-            data=plan_text,
-            file_name=f"{st.session_state.topic.replace(' ', '_')}_study_plan.txt",
-            mime="text/plain",
-        )
+        dl_col1, dl_col2 = st.columns(2)
+        with dl_col1:
+            st.download_button(
+                "⬇️  Download plan as .txt",
+                data=plan_text,
+                file_name=f"{st.session_state.topic.replace(' ', '_')}_study_plan.txt",
+                mime="text/plain",
+                use_container_width=True,
+            )
+        # Full notes export — only offered once at least one lesson has been
+        # generated. Pulls from content_cache (already-fetched explanations),
+        # no new AI calls.
+        cache = st.session_state.get("content_cache", {})
+        if cache:
+            notes_text = f"Study Notes: {st.session_state.topic}\n\n"
+            for i, mod in enumerate(st.session_state.plan):
+                if i in cache:
+                    notes_text += f"{'=' * 50}\n{i + 1}. {mod}\n{'=' * 50}\n{cache[i]}\n\n"
+            with dl_col2:
+                st.download_button(
+                    "⬇️  Download all notes so far",
+                    data=notes_text,
+                    file_name=f"{st.session_state.topic.replace(' ', '_')}_notes.txt",
+                    mime="text/plain",
+                    use_container_width=True,
+                )
     st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---- Topic history (real data — only topics actually completed) ----
+    if st.session_state.topic_history:
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="section-heading">📚 Topics you\'ve completed</div>', unsafe_allow_html=True)
+        for h in reversed(st.session_state.topic_history):
+            st.markdown(
+                f'<div class="history-card"><span class="history-topic">{h["topic"]}</span>'
+                f'<span class="history-score">{h["modules"]} modules</span></div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Page: Progress — real stats only, styled as stat cards
@@ -402,6 +466,11 @@ else:
             st.rerun()
         else:
             st.progress(idx / len(modules), text=f"Module {idx + 1} of {len(modules)}")
+            dots = "".join(
+                f'<span class="dot {"dot-done" if i < idx else "dot-current" if i == idx else "dot-upcoming"}"></span>'
+                for i in range(len(modules))
+            )
+            st.markdown(f'<div class="dot-strip">{dots}</div>', unsafe_allow_html=True)
             st.markdown('<div class="card">', unsafe_allow_html=True)
             st.markdown('<span class="agent-badge badge-content">📖 Content Agent</span>', unsafe_allow_html=True)
             st.markdown(f'<div class="module-title">{modules[idx]}</div>', unsafe_allow_html=True)
@@ -419,7 +488,12 @@ else:
                     )
                     st.button("🔄 Try again", key="retry_content")
                     st.stop()
-            st.markdown('<div class="section-heading">📘 Lesson</div>', unsafe_allow_html=True)
+            word_count = len(st.session_state.content_cache[idx].split())
+            read_min = max(1, round(word_count / 200))
+            st.markdown(
+                f'<div class="section-heading">📘 Lesson · {read_min} min read</div>',
+                unsafe_allow_html=True,
+            )
             st.markdown(f'<div class="lesson-body">{st.session_state.content_cache[idx]}</div>', unsafe_allow_html=True)
             st.write("")
             st.button("I'm ready for the quiz →", type="primary",
@@ -475,6 +549,22 @@ else:
                     st.session_state.plan = st.session_state.plan[: idx + 1] + new_modules + remaining
             else:
                 score_col2.success("Nice work!")
+
+            # Per-question review — built from data already in `quiz`/`answers`,
+            # no agent changes or extra AI calls needed.
+            st.markdown('<div class="section-heading">🔍 Review</div>', unsafe_allow_html=True)
+            for i, q in enumerate(quiz):
+                is_correct = answers[i] == q["correct_index"]
+                row_class = "review-correct" if is_correct else "review-wrong"
+                icon = "✅" if is_correct else "❌"
+                detail = "" if is_correct else (
+                    f"<br><b>Correct answer:</b> {q['options'][q['correct_index']]}"
+                )
+                st.markdown(
+                    f'<div class="review-row {row_class}">{icon} <b>Q{i+1}.</b> {q["question"]}{detail}</div>',
+                    unsafe_allow_html=True,
+                )
+
             st.session_state.module_index += 1
             del st.session_state["current_quiz"]
             st.session_state.stage = "content"
@@ -483,6 +573,13 @@ else:
 
     elif st.session_state.stage == "done":
         st.balloons()
+        if not st.session_state.get("logged_to_history"):
+            s = st.session_state.stats
+            st.session_state.topic_history.append({
+                "topic": st.session_state.topic,
+                "modules": len(st.session_state.plan),
+            })
+            st.session_state.logged_to_history = True
         st.markdown('<div class="card">', unsafe_allow_html=True)
         st.markdown('<span class="agent-badge badge-done">🎉 All done</span>', unsafe_allow_html=True)
         st.markdown('<div class="module-title">You\'ve completed the full study plan!</div>', unsafe_allow_html=True)
@@ -493,7 +590,7 @@ else:
         st.write("")
         if st.button("Start a new topic", type="primary"):
             for key in ["plan", "module_index", "weak_areas", "stage", "topic",
-                        "current_quiz", "quiz_module", "page", "content_cache"]:
+                        "current_quiz", "quiz_module", "page", "content_cache", "logged_to_history"]:
                 if key in st.session_state:
                     del st.session_state[key]
             st.rerun()
