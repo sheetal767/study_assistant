@@ -1,66 +1,38 @@
-"""
-CONTENT AGENT
-Takes a module name and generates a plain-language explanation for it.
-"""
-
 import os
+import time
 import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
-
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 MODEL_NAME = "gemini-3.6-flash"
 
-# Capped so the reply (which is only meant
-# to be a few short paragraphs)
-# doesn't run long and slow things down.
-GENERATION_CONFIG = genai.types.GenerationConfig(
-    max_output_tokens=800
-)
 
+def stream_study_chat(prompt: str, history: list):
+    """Streams a response for the chat UI, locked to study explanations."""
+    model = genai.GenerativeModel(MODEL_NAME)
 
-def explain_module(module_name: str, topic: str = "") -> str:
-    """
-    Returns a plain-language explanation (a
-    few short paragraphs) for the
-    given module name.
-    """
+    # Convert Streamlit history to Gemini format
+    formatted_history = []
+    for msg in history:
+        role = "user" if msg["role"] == "user" else "model"
+        formatted_history.append({"role": role, "parts": [msg["content"]]})
 
-    model = genai.GenerativeModel(
-        MODEL_NAME,
-        generation_config=GENERATION_CONFIG
+    system_prompt = (
+        "You are Lumo, an expert study assistant. Explain concepts clearly with "
+        "real-world examples. Never generate quizzes here."
     )
 
-    prompt = f"""You are a friendly tutor
-explaining a topic to a college student
-with no prior background. Explain "
-{module_name}" (part of the broader topic
-"{topic}") in plain, simple language.
-
-Rules:
-- Use short paragraphs and simple examples
-- No jargon without explaining it first
-- Keep it under 250 words
-- End with one short real-world example
-"""
-
-    response = model.generate_content(
-        prompt,
-        request_options={"timeout": 30},
-    )
-
-    return response.text.strip()
-
-
-if __name__ == "__main__":
-    # Simple test when you run: python
-    # content_agent.py
-
-    explanation = explain_module(
-        "Primary Keys and Foreign Keys",
-        "DBMS Basics"
-    )
-
-    print(explanation)
+    for attempt in range(3):
+        try:
+            chat = model.start_chat(history=formatted_history)
+            response = chat.send_message(f"{system_prompt}\n\nStudent: {prompt}", stream=True)
+            for chunk in response:
+                if chunk.text:
+                    yield chunk.text
+            break
+        except Exception:
+            if attempt == 2:
+                yield "I am currently overloaded by API limits. Please try again in a few seconds."
+            time.sleep(3)
