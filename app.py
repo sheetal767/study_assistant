@@ -91,22 +91,29 @@ else:
 
     # SIDEBAR
     with st.sidebar:
-        st.markdown(f"**Good afternoon, {st.session_state.username}**")
-        if st.button("➕ New Chat", use_container_width=True, type="primary"):
+        st.markdown(f"**Welcome back, {st.session_state.username}** 👋")
+        if st.button("➕ New Chat", use_container_width=True):
             st.session_state.chat_id = None
             st.session_state.messages = []
             st.session_state.page = "Chat"
             st.rerun()
         st.markdown("---")
 
-        # Navigation
-        for p in ["Chat", "Quiz", "Books", "Progress", "Music"]:
-            if st.button(f"📘 {p}", use_container_width=True):
+        # Navigation (active page is highlighted)
+        NAV = {"Chat": "💬", "Quiz": "📝", "Books": "📚", "Progress": "📊", "Music": "🎧"}
+        for p, icon in NAV.items():
+            is_active = st.session_state.page == p
+            if st.button(
+                f"{icon} {p}",
+                use_container_width=True,
+                type="primary" if is_active else "secondary",
+                key=f"nav_{p}",
+            ):
                 st.session_state.page = p
                 st.rerun()
 
         st.markdown("---")
-        if st.button("Logout"):
+        if st.button("🚪 Logout", use_container_width=True):
             st.session_state.clear()
             st.rerun()
 
