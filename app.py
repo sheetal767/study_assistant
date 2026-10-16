@@ -5,7 +5,7 @@ import base64
 from datetime import datetime
 from database import (
     verify_user, create_user, get_chat_history, get_db,
-    save_chat_message, log_study_time, save_quiz_score,
+    save_chat_message, log_study_time, save_quiz_score, get_progress_stats,
 )
 from styles import apply_lumo_styles, CARD_CSS
 from content_agent import stream_study_chat
@@ -100,7 +100,7 @@ else:
         st.markdown("---")
 
         # Navigation
-        for p in ["Chat", "Quiz", "Books", "Music"]:
+        for p in ["Chat", "Quiz", "Books", "Progress", "Music"]:
             if st.button(f"📘 {p}", use_container_width=True):
                 st.session_state.page = p
                 st.rerun()
@@ -222,3 +222,34 @@ else:
                     f'height="600px"></iframe>',
                     unsafe_allow_html=True,
                 )
+
+    elif st.session_state.page == "Progress":
+        page_header("📊 Progress", "Your study stats at a glance")
+        stats = get_progress_stats(st.session_state.user_id)
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            stat_card("Minutes studied", stats["minutes"], "⏱️")
+        with c2:
+            stat_card("Quizzes taken", stats["quizzes"], "📝")
+        with c3:
+            stat_card("Average score", f"{stats['avg']}%", "🎯")
+
+        st.markdown("#### Recent quizzes")
+        if stats["recent"]:
+            for r in stats["recent"]:
+                card(r["topic"], f"{r['score']}/{r['total']} correct")
+        else:
+            st.info("No quizzes yet. Take one in the Quiz tab!")
+
+    elif st.session_state.page == "Music":
+        page_header("🎧 Focus Music", "Background sounds for studying")
+        st.markdown(
+            "<div class='lumo-card'>⚠️ <b>Note:</b> Some music sites block embedding. "
+            "Click below to open safely.</div>",
+            unsafe_allow_html=True,
+        )
+        st.link_button(
+            "Open Focus Music",
+            "https://www.youtube.com/results?search_query=lofi+study+music",
+            use_container_width=True,
+        )
