@@ -10,7 +10,7 @@ from database import (
 from styles import apply_lumo_styles, CARD_CSS
 from content_agent import stream_study_chat
 from quiz_agent import generate_quiz
-from ui import card
+from ui import card, page_header, stat_card
 
 st.set_page_config(page_title="Lumo | Study OS", page_icon="🧠", layout="wide")
 st.markdown(CARD_CSS, unsafe_allow_html=True)
@@ -114,7 +114,7 @@ else:
     if st.session_state.page == "Chat":
         col1, col2 = st.columns([2, 1])
         with col1:
-            st.markdown("### Study Chat")
+            page_header("Study Chat", "Ask anything about your study material")
             for msg in st.session_state.messages:
                 with st.chat_message(msg["role"]):
                     st.markdown(msg["content"])
@@ -164,7 +164,7 @@ else:
             st.markdown("</div>", unsafe_allow_html=True)
 
     elif st.session_state.page == "Quiz":
-        st.markdown("### 📝 Quiz Generator")
+        page_header("📝 Quiz Generator", "Test yourself on any topic")
         topic = st.text_input("Topic to quiz on")
         diff = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
         if st.button("Generate Quiz", type="primary") and topic:
@@ -179,7 +179,7 @@ else:
             for i, q in enumerate(st.session_state.current_quiz):
                 st.markdown(f"**Q{i+1}: {q['question']}**")
                 ans = st.radio("Options", q['options'], key=f"q{i}", index=None,
-                                label_visibility="collapsed")
+                               label_visibility="collapsed")
                 answers.append(q['options'].index(ans) if ans else -1)
 
             if st.button("Submit Answers"):
@@ -198,7 +198,7 @@ else:
                 )
 
     elif st.session_state.page == "Books":
-        st.markdown("### 📚 Library")
+        page_header("📚 Library", "Upload and read your PDFs")
         uploaded_file = st.file_uploader("Upload PDF", type="pdf")
         if uploaded_file:
             path = os.path.join("uploads", uploaded_file.name)
@@ -222,12 +222,3 @@ else:
                     f'height="600px"></iframe>',
                     unsafe_allow_html=True,
                 )
-
-    elif st.session_state.page == "Music":
-        st.markdown("### 🎧 Focus Music")
-        st.markdown(
-            "<div class='lumo-card'>⚠️ <b>Note:</b> Freefy.app uses security headers that "
-            "block embedding. Click below to open safely.</div>",
-            unsafe_allow_html=True,
-        )
-        st.link_button("Open Freefy Player in New Tab ↗", "https://freefy.app/", type="primary")
