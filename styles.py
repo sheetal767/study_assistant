@@ -4,10 +4,10 @@ import streamlit as st
 def apply_lumo_styles():
     st.markdown("""
     <style>
-    /* Hide Streamlit Branding */
+    /* Hide Streamlit branding (header stays so the sidebar toggle works on mobile) */
     #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
     footer {visibility: hidden;}
+    header[data-testid="stHeader"] {background: transparent;}
 
     /* Clean Layout */
     .block-container {
@@ -21,6 +21,9 @@ def apply_lumo_styles():
         background-color: #09090b;
         border-right: 1px solid #27272a;
     }
+    [data-testid="stSidebar"] .block-container {
+        padding-top: 1rem;
+    }
 
     /* Glassmorphism Cards */
     .lumo-card {
@@ -32,16 +35,71 @@ def apply_lumo_styles():
         margin-bottom: 1rem;
     }
 
-    /* Button overrides */
+    /* Buttons: base */
+    div.stButton > button {
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.15s ease;
+    }
+    div.stButton > button:hover {
+        transform: translateY(-1px);
+    }
+
+    /* Buttons: primary (also the active sidebar page) */
     div.stButton > button[kind="primary"] {
         background-color: #6366f1;
         color: white;
         border: none;
-        border-radius: 8px;
         font-weight: 600;
     }
     div.stButton > button[kind="primary"]:hover {
         background-color: #4f46e5;
+    }
+
+    /* Sidebar nav buttons: left aligned, subtle */
+    [data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
+        background: transparent;
+        border: 1px solid transparent;
+        justify-content: flex-start;
+        text-align: left;
+    }
+    [data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {
+        background: rgba(99, 102, 241, 0.12);
+        border-color: rgba(99, 102, 241, 0.35);
+    }
+    [data-testid="stSidebar"] div.stButton > button[kind="primary"] {
+        justify-content: flex-start;
+        text-align: left;
+    }
+
+    /* Inputs */
+    div[data-baseweb="input"] > div,
+    div[data-baseweb="select"] > div {
+        border-radius: 8px;
+    }
+
+    /* Chat bubbles */
+    [data-testid="stChatMessage"] {
+        background: rgba(24, 24, 27, 0.55);
+        border: 1px solid #27272a;
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 8px;
+    }
+
+    /* Tabs */
+    button[data-baseweb="tab"] {
+        font-weight: 600;
+    }
+
+    /* Mobile */
+    @media (max-width: 640px) {
+        .block-container {
+            padding-left: 1rem;
+            padding-right: 1rem;
+            padding-top: 1rem;
+        }
+        .sf-card { padding: 12px 14px; }
     }
 
     /* Focus Mode full screen override */
@@ -51,7 +109,9 @@ def apply_lumo_styles():
     }
     </style>
     """, unsafe_allow_html=True)
-    CARD_CSS = """
+
+
+CARD_CSS = """
 <style>
 .sf-card {
     background: rgba(128, 128, 128, 0.08);
