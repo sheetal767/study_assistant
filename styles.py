@@ -51,3 +51,21 @@ def apply_lumo_styles():
     }
     </style>
     """, unsafe_allow_html=True)
+    CARD_CSS = """
+<style>
+.sf-card {
+    background: rgba(128, 128, 128, 0.08);
+    border: 1px solid rgba(128, 128, 128, 0.2);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.sf-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+.sf-card h4 { margin: 0 0 6px 0; }
+.sf-card p { margin: 0; opacity: 0.85; }
+</style>
+"""
