@@ -77,4 +77,24 @@ def save_quiz_score(user_id, topic, score, total):
     conn.commit()
 
 
+def get_progress_stats(user_id):
+    conn = get_db()
+    mins = conn.execute(
+        "SELECT COALESCE(SUM(minutes), 0) AS m FROM study_sessions WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()["m"]
+    q = conn.execute(
+        "SELECT COUNT(*) AS n, COALESCE(SUM(score), 0) AS s, "
+        "COALESCE(SUM(total), 0) AS t FROM quiz_scores WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    avg = round(q["s"] * 100 / q["t"]) if q["t"] else 0
+    recent = conn.execute(
+        "SELECT topic, score, total FROM quiz_scores WHERE user_id = ? "
+        "ORDER BY created_at DESC LIMIT 5",
+        (user_id,),
+    ).fetchall()
+    return {"minutes": mins, "quizzes": q["n"], "avg": avg, "recent": recent}
+
+
 init_db()
