@@ -7,11 +7,13 @@ from database import (
     verify_user, create_user, get_chat_history, get_db,
     save_chat_message, log_study_time, save_quiz_score,
 )
-from styles import apply_lumo_styles
+from styles import apply_lumo_styles, CARD_CSS
 from content_agent import stream_study_chat
 from quiz_agent import generate_quiz
+from ui import card
 
 st.set_page_config(page_title="Lumo | Study OS", page_icon="🧠", layout="wide")
+st.markdown(CARD_CSS, unsafe_allow_html=True)
 apply_lumo_styles()
 
 # Ensure uploads folder exists
