@@ -10,6 +10,7 @@ from database import (
 from styles import apply_lumo_styles, CARD_CSS
 from content_agent import stream_study_chat
 from quiz_agent import generate_quiz
+from planner_agent import create_study_plan
 from ui import card, page_header, stat_card, empty_state, progress_bar
 
 st.set_page_config(page_title="Lumo | Study OS", page_icon="🧠", layout="wide")
@@ -100,7 +101,10 @@ else:
         st.markdown("---")
 
         # Navigation (active page is highlighted)
-        NAV = {"Chat": "💬", "Quiz": "📝", "Books": "📚", "Progress": "📊", "Music": "🎧"}
+        NAV = {
+            "Chat": "💬", "Plan": "🗺️", "Quiz": "📝",
+            "Books": "📚", "Progress": "📊", "Music": "🎧",
+        }
         for p, icon in NAV.items():
             is_active = st.session_state.page == p
             if st.button(
@@ -172,6 +176,29 @@ else:
                     st.session_state.update(focus_mode=True, timer_running=True)
                     st.rerun()
             st.markdown("</div>", unsafe_allow_html=True)
+
+    elif st.session_state.page == "Plan":
+        page_header("🗺️ Study Plan", "Break any subject into bite-sized lessons")
+        plan_topic = st.text_input("Subject", placeholder="e.g. DBMS", key="plan_topic_input")
+        weak_text = st.text_input("Weak areas (optional, separated by commas)", key="plan_weak_input")
+        if st.button("Create Plan", type="primary") and plan_topic:
+            with st.spinner("Building your plan..."):
+                weak_list = [w.strip() for w in weak_text.split(",") if w.strip()]
+                st.session_state.plan = create_study_plan(plan_topic, weak_list or None)
+                st.session_state.plan_subject = plan_topic
+
+        if st.session_state.get("plan"):
+            subject = st.session_state.get("plan_subject", "")
+            st.markdown(f"#### Your plan for {subject}")
+            done = 0
+            for i, module in enumerate(st.session_state.plan):
+                if st.checkbox(f"{i + 1}. {module}", key=f"plan_{subject}_{i}"):
+                    done += 1
+            total = len(st.session_state.plan)
+            progress_bar(f"{done} of {total} modules done", round(done * 100 / total))
+            st.caption("Tip: ask about each module in the Chat tab, then test yourself in Quiz.")
+        else:
+            empty_state("🗺️", "No plan yet", "Enter a subject above and tap Create Plan.")
 
     elif st.session_state.page == "Quiz":
         page_header("📝 Quiz Generator", "Test yourself on any topic")
