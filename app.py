@@ -10,7 +10,7 @@ from database import (
 from styles import apply_lumo_styles, CARD_CSS
 from content_agent import stream_study_chat
 from quiz_agent import generate_quiz
-from ui import card, page_header, stat_card
+from ui import card, page_header, stat_card, empty_state, progress_bar
 
 st.set_page_config(page_title="Lumo | Study OS", page_icon="🧠", layout="wide")
 st.markdown(CARD_CSS, unsafe_allow_html=True)
@@ -122,6 +122,9 @@ else:
         col1, col2 = st.columns([2, 1])
         with col1:
             page_header("Study Chat", "Ask anything about your study material")
+            if not st.session_state.messages:
+                empty_state("💬", "Start a conversation",
+                            "Ask about any topic below and I'll explain it step by step.")
             for msg in st.session_state.messages:
                 with st.chat_message(msg["role"]):
                     st.markdown(msg["content"])
@@ -220,6 +223,8 @@ else:
         books = get_db().execute(
             "SELECT * FROM books WHERE user_id=?", (st.session_state.user_id,)
         ).fetchall()
+        if not books:
+            empty_state("📚", "Your library is empty", "Upload a PDF above to get started.")
         for b in books:
             if st.button(f"📖 Read {b['title']}"):
                 with open(b['file_path'], "rb") as f:
@@ -244,9 +249,10 @@ else:
         st.markdown("#### Recent quizzes")
         if stats["recent"]:
             for r in stats["recent"]:
-                card(r["topic"], f"{r['score']}/{r['total']} correct")
+                pct = round(r["score"] * 100 / r["total"]) if r["total"] else 0
+                progress_bar(f"{r['topic']} ({r['score']}/{r['total']})", pct)
         else:
-            st.info("No quizzes yet. Take one in the Quiz tab!")
+            empty_state("📝", "No quizzes yet", "Take one in the Quiz tab and your scores will show here.")
 
     elif st.session_state.page == "Music":
         page_header("🎧 Focus Music", "Background sounds for studying")
