@@ -46,6 +46,23 @@ def render_timer():
                 unsafe_allow_html=True)
 
 
+# --- TIMER BUTTON CALLBACKS ---
+def _set_timer(minutes):
+    st.session_state.update(time_left=minutes * 60, timer_running=False)
+
+
+def _toggle_timer():
+    if st.session_state.time_left <= 0:
+        st.session_state.time_left = 25 * 60
+    st.session_state.timer_running = not st.session_state.timer_running
+
+
+def _start_focus():
+    if st.session_state.time_left <= 0:
+        st.session_state.time_left = 25 * 60
+    st.session_state.update(focus_mode=True, timer_running=True)
+
+
 # --- LOGIN / SIGNUP PAGE ---
 def show_login():
     st.markdown("<div style='max-width: 400px; margin: 10vh auto;' class='lumo-card'>",
@@ -121,61 +138,64 @@ else:
             st.session_state.clear()
             st.rerun()
 
+    # FLOATING TIMER (top right pill, opens a popup panel on every page)
+    timer_label = "⏱️ Timer ●" if st.session_state.timer_running else "⏱️ Timer"
+    with st.popover(timer_label):
+        st.markdown("#### ⏱️ Study Timer")
+        render_timer()
+        p1, p2, p3 = st.columns(3)
+        with p1:
+            st.button("25m", key="tm_25", on_click=_set_timer, args=(25,), use_container_width=True)
+        with p2:
+            st.button("15m", key="tm_15", on_click=_set_timer, args=(15,), use_container_width=True)
+        with p3:
+            st.button("5m", key="tm_5", on_click=_set_timer, args=(5,), use_container_width=True)
+        b1, b2 = st.columns(2)
+        with b1:
+            st.button(
+                "Pause" if st.session_state.timer_running else "Start",
+                key="tm_toggle", type="primary",
+                on_click=_toggle_timer, use_container_width=True,
+            )
+        with b2:
+            st.button("🎯 Focus", key="tm_focus", on_click=_start_focus, use_container_width=True)
+
     # PAGES
     if st.session_state.page == "Chat":
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            page_header("Study Chat", "Ask anything about your study material")
-            if not st.session_state.messages:
-                empty_state("💬", "Start a conversation",
-                            "Ask about any topic below and I'll explain it step by step.")
-            for msg in st.session_state.messages:
-                with st.chat_message(msg["role"]):
-                    st.markdown(msg["content"])
+        page_header("Study Chat", "Ask anything about your study material")
+        if not st.session_state.messages:
+            empty_state("💬", "Start a conversation",
+                        "Ask about any topic below and I'll explain it step by step.")
+        for msg in st.session_state.messages:
+            with st.chat_message(msg["role"]):
+                st.markdown(msg["content"])
 
-            if prompt := st.chat_input("Ask about your study material..."):
-                # Save chat session to DB if new
-                if not st.session_state.chat_id:
-                    conn = get_db()
-                    c = conn.cursor()
-                    c.execute(
-                        "INSERT INTO chats (user_id, title, created_at) VALUES (?, ?, ?)",
-                        (st.session_state.user_id, prompt[:30], datetime.now()),
-                    )
-                    conn.commit()
-                    st.session_state.chat_id = c.lastrowid
+        if prompt := st.chat_input("Ask about your study material..."):
+            # Save chat session to DB if new
+            if not st.session_state.chat_id:
+                conn = get_db()
+                c = conn.cursor()
+                c.execute(
+                    "INSERT INTO chats (user_id, title, created_at) VALUES (?, ?, ?)",
+                    (st.session_state.user_id, prompt[:30], datetime.now()),
+                )
+                conn.commit()
+                st.session_state.chat_id = c.lastrowid
 
-                st.session_state.messages.append({"role": "user", "content": prompt})
-                save_chat_message(st.session_state.chat_id, "user", prompt)
-                with st.chat_message("user"):
-                    st.markdown(prompt)
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            save_chat_message(st.session_state.chat_id, "user", prompt)
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
-                with st.chat_message("model"):
-                    response_placeholder = st.empty()
-                    full_resp = ""
-                    for chunk in stream_study_chat(prompt, st.session_state.messages[:-1]):
-                        full_resp += chunk
-                        response_placeholder.markdown(full_resp + "▌")
-                    response_placeholder.markdown(full_resp)
-                st.session_state.messages.append({"role": "model", "content": full_resp})
-                save_chat_message(st.session_state.chat_id, "model", full_resp)
-
-        with col2:
-            st.markdown("<div class='lumo-card'>", unsafe_allow_html=True)
-            st.markdown("#### ⏱️ Timer")
-            render_timer()
-            t_col1, t_col2, t_col3 = st.columns(3)
-            with t_col1:
-                if st.button("25/5"):
-                    st.session_state.update(time_left=25 * 60, timer_running=False)
-            with t_col2:
-                if st.button("Start" if not st.session_state.timer_running else "Pause"):
-                    st.session_state.timer_running = not st.session_state.timer_running
-            with t_col3:
-                if st.button("Focus"):
-                    st.session_state.update(focus_mode=True, timer_running=True)
-                    st.rerun()
-            st.markdown("</div>", unsafe_allow_html=True)
+            with st.chat_message("model"):
+                response_placeholder = st.empty()
+                full_resp = ""
+                for chunk in stream_study_chat(prompt, st.session_state.messages[:-1]):
+                    full_resp += chunk
+                    response_placeholder.markdown(full_resp + "▌")
+                response_placeholder.markdown(full_resp)
+            st.session_state.messages.append({"role": "model", "content": full_resp})
+            save_chat_message(st.session_state.chat_id, "model", full_resp)
 
     elif st.session_state.page == "Plan":
         page_header("🗺️ Study Plan", "Break any subject into bite-sized lessons")
