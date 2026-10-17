@@ -163,14 +163,20 @@ else:
     # PAGES
     if st.session_state.page == "Chat":
         page_header("Study Chat", "Ask anything about your study material")
-        if not st.session_state.messages:
-            empty_state("💬", "Start a conversation",
-                        "Ask about any topic below and I'll explain it step by step.")
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
-                st.markdown(msg["content"])
+        history = list(st.session_state.messages)
 
-        if prompt := st.chat_input("Ask about your study material..."):
+        # Chat box sits right under the title (inside a container = not pinned to the bottom)
+        input_box = st.container()
+        with input_box:
+            prompt = st.chat_input("Ask about your study material...")
+
+        if not history and not prompt:
+            empty_state("💬", "Start a conversation",
+                        "Ask about any topic above and I'll explain it step by step.")
+
+        # Newest exchange appears right under the chat box
+        live = st.container()
+        if prompt:
             # Save chat session to DB if new
             if not st.session_state.chat_id:
                 conn = get_db()
@@ -184,18 +190,30 @@ else:
 
             st.session_state.messages.append({"role": "user", "content": prompt})
             save_chat_message(st.session_state.chat_id, "user", prompt)
-            with st.chat_message("user"):
-                st.markdown(prompt)
 
-            with st.chat_message("model"):
-                response_placeholder = st.empty()
-                full_resp = ""
-                for chunk in stream_study_chat(prompt, st.session_state.messages[:-1]):
-                    full_resp += chunk
-                    response_placeholder.markdown(full_resp + "▌")
-                response_placeholder.markdown(full_resp)
+            with live:
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                with st.chat_message("assistant", avatar="🧠"):
+                    response_placeholder = st.empty()
+                    full_resp = ""
+                    for chunk in stream_study_chat(prompt, history):
+                        full_resp += chunk
+                        response_placeholder.markdown(full_resp + "▌")
+                    response_placeholder.markdown(full_resp)
             st.session_state.messages.append({"role": "model", "content": full_resp})
             save_chat_message(st.session_state.chat_id, "model", full_resp)
+
+        # Older conversation, newest first
+        pairs = [history[i:i + 2] for i in range(0, len(history), 2)]
+        for pair in reversed(pairs):
+            for msg in pair:
+                if msg["role"] == "user":
+                    with st.chat_message("user"):
+                        st.markdown(msg["content"])
+                else:
+                    with st.chat_message("assistant", avatar="🧠"):
+                        st.markdown(msg["content"])
 
     elif st.session_state.page == "Plan":
         page_header("🗺️ Study Plan", "Break any subject into bite-sized lessons")
