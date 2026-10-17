@@ -1,4 +1,6 @@
+import json
 import streamlit as st
+import streamlit.components.v1 as components
 
 
 def _wave(color: str, alpha: float) -> str:
@@ -32,22 +34,16 @@ _TREES = (
 
 _CSS = """
 <style>
-/* Hide Streamlit branding (header stays so the sidebar toggle works on mobile) */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
 
 /* ===== NORTHERN LIGHTS BACKGROUND ===== */
-.stApp {
-    background: linear-gradient(180deg, #02050b 0%, #04101a 45%, #06201f 100%) !important;
-}
+html, body { background: #02050b !important; }
+.stApp,
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
 [data-testid="stHeader"] {
     background: transparent !important;
-}
-[data-testid="stAppViewContainer"] {
-    position: relative;
-    z-index: 0;
 }
 
 .aurora-bg {
@@ -56,9 +52,8 @@ footer {visibility: hidden;}
     z-index: -1;
     pointer-events: none;
     overflow: hidden;
+    background: linear-gradient(180deg, #02050b 0%, #04101a 45%, #06201f 100%);
 }
-
-/* Twinkling stars */
 .aurora-bg .stars {
     position: absolute;
     inset: 0;
@@ -94,12 +89,7 @@ footer {visibility: hidden;}
     to   { opacity: 1; }
 }
 
-/* Aurora waves */
-.aurora-bg .sway {
-    position: absolute;
-    left: 0;
-    right: 0;
-}
+.aurora-bg .sway { position: absolute; left: 0; right: 0; }
 .aurora-bg .sway.a { top: 4vh;  height: 62vh; animation: aurora-sway 16s ease-in-out infinite alternate; }
 .aurora-bg .sway.b { top: 16vh; height: 55vh; animation: aurora-sway 22s ease-in-out infinite alternate-reverse; }
 .aurora-bg .sway.c { top: 28vh; height: 50vh; animation: aurora-sway 28s ease-in-out infinite alternate; }
@@ -143,7 +133,6 @@ footer {visibility: hidden;}
     to   { opacity: 1; }
 }
 
-/* Pine tree silhouettes */
 .aurora-bg .trees {
     position: absolute;
     left: 0;
@@ -161,24 +150,19 @@ footer {visibility: hidden;}
 }
 /* ===== END NORTHERN LIGHTS ===== */
 
-/* Clean Layout */
 .block-container {
     padding-top: 2.5rem;
     padding-bottom: 2rem;
     max-width: 1200px;
 }
 
-/* SaaS Sidebar */
 [data-testid="stSidebar"] {
-    background-color: rgba(5, 10, 18, 0.88);
+    background-color: rgba(5, 10, 18, 0.88) !important;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
     backdrop-filter: blur(12px);
 }
-[data-testid="stSidebar"] .block-container {
-    padding-top: 1rem;
-}
+[data-testid="stSidebar"] .block-container { padding-top: 1rem; }
 
-/* Glassmorphism Cards */
 .lumo-card {
     background: rgba(10, 16, 28, 0.6);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -188,31 +172,21 @@ footer {visibility: hidden;}
     margin-bottom: 1rem;
 }
 
-/* Buttons: base */
 div.stButton > button {
     border-radius: 8px;
     font-weight: 500;
     transition: all 0.15s ease;
 }
-div.stButton > button:hover {
-    transform: translateY(-1px);
-}
-
-/* Buttons: primary (also the active sidebar page) */
+div.stButton > button:hover { transform: translateY(-1px); }
 div.stButton > button[kind="primary"] {
     background-color: #6366f1;
     color: white;
     border: none;
     font-weight: 600;
 }
-div.stButton > button[kind="primary"]:hover {
-    background-color: #4f46e5;
-}
+div.stButton > button[kind="primary"]:hover { background-color: #4f46e5; }
 
-/* Sidebar nav buttons: left aligned, subtle */
-[data-testid="stSidebar"] div.stButton > button {
-    justify-content: flex-start;
-}
+[data-testid="stSidebar"] div.stButton > button { justify-content: flex-start; }
 [data-testid="stSidebar"] div.stButton > button > div,
 [data-testid="stSidebar"] div.stButton > button p {
     justify-content: flex-start;
@@ -228,7 +202,7 @@ div.stButton > button[kind="primary"]:hover {
     border-color: rgba(99, 102, 241, 0.4);
 }
 
-/* Floating timer button (the clock at the top) */
+/* Floating timer pill */
 div[data-testid="stPopover"] {
     position: fixed;
     top: 0.6rem;
@@ -243,9 +217,7 @@ div[data-testid="stPopover"] button {
     backdrop-filter: blur(10px);
     padding: 0.2rem 0.9rem;
 }
-div[data-testid="stPopover"] button:hover {
-    border-color: rgba(99, 102, 241, 0.7);
-}
+div[data-testid="stPopover"] button:hover { border-color: rgba(99, 102, 241, 0.7); }
 [data-testid="stElementContainer"]:has(> [data-testid="stPopover"]) {
     height: 0;
     min-height: 0;
@@ -257,13 +229,9 @@ div[data-testid="stPopoverBody"] {
     backdrop-filter: blur(14px);
 }
 
-/* Inputs */
 div[data-baseweb="input"] > div,
-div[data-baseweb="select"] > div {
-    border-radius: 8px;
-}
+div[data-baseweb="select"] > div { border-radius: 8px; }
 
-/* Chat bubbles (slightly solid so text stays readable over the aurora) */
 [data-testid="stChatMessage"] {
     background: rgba(8, 14, 26, 0.62);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -273,27 +241,16 @@ div[data-baseweb="select"] > div {
     backdrop-filter: blur(10px);
 }
 
-/* Tabs */
-button[data-baseweb="tab"] {
-    font-weight: 600;
-}
+button[data-baseweb="tab"] { font-weight: 600; }
 
-/* Mobile */
 @media (max-width: 640px) {
     .block-container {
         padding-left: 1rem;
         padding-right: 1rem;
         padding-top: 2.5rem;
     }
-    .sf-card { padding: 12px 14px; }
     .aurora-bg .wave { filter: blur(4px); }
     .aurora-bg .trees { height: 120px; }
-}
-
-/* Focus Mode full screen override */
-.focus-mode-active .block-container {
-    max-width: 100% !important;
-    padding: 0 !important;
 }
 </style>
 """
@@ -318,10 +275,21 @@ def apply_lumo_styles():
         .replace("__WAVE3__", _wave("%23a78bfa", 0.38))
         .replace("__TREES__", _TREES)
     )
-    try:
-        st.html(_AURORA_HTML + css)
-    except AttributeError:
-        st.markdown(css + _AURORA_HTML, unsafe_allow_html=True)
+    payload = json.dumps(_AURORA_HTML + css)
+    # Inject straight into the page (Streamlit ignores big style blocks sent as text)
+    components.html(
+        f"""<script>
+        (function() {{
+            var d = window.parent.document;
+            if (d.getElementById('lumo-aurora-root')) return;
+            var holder = d.createElement('div');
+            holder.id = 'lumo-aurora-root';
+            holder.innerHTML = {payload};
+            d.body.appendChild(holder);
+        }})();
+        </script>""",
+        height=0,
+    )
 
 
 CARD_CSS = """
