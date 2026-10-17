@@ -38,7 +38,8 @@ _CSS = """
 footer {visibility: hidden;}
 
 /* ===== NORTHERN LIGHTS BACKGROUND ===== */
-html, body { background: #02050b !important; }
+html { background: #02050b !important; }
+body { background: transparent !important; }
 .stApp,
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
