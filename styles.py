@@ -318,7 +318,10 @@ def apply_lumo_styles():
         .replace("__WAVE3__", _wave("%23a78bfa", 0.38))
         .replace("__TREES__", _TREES)
     )
-    st.markdown(css + _AURORA_HTML, unsafe_allow_html=True)
+    try:
+        st.html(_AURORA_HTML + css)
+    except AttributeError:
+        st.markdown(css + _AURORA_HTML, unsafe_allow_html=True)
 
 
 CARD_CSS = """
