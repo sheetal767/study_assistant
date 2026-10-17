@@ -8,9 +8,13 @@ load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 MODEL_NAME = "gemini-3.6-flash"
-GENERATION_CONFIG = genai.types.GenerationConfig(
-    max_output_tokens=4000,
+
+JSON_CONFIG = genai.types.GenerationConfig(
+    max_output_tokens=8192,
     response_mime_type="application/json",
+)
+PLAIN_CONFIG = genai.types.GenerationConfig(
+    max_output_tokens=8192,
 )
 
 
@@ -43,7 +47,6 @@ def _clean_questions(raw) -> list[dict]:
 
 
 def generate_quiz(topic: str, num_questions: int, difficulty: str) -> list[dict]:
-    model = genai.GenerativeModel(MODEL_NAME, generation_config=GENERATION_CONFIG)
     prompt = f"""Create a {difficulty} {num_questions}-question multiple-choice quiz about "{topic}".
 Each question must have exactly 4 options.
 "correct_index" is the 0-based position of the right option.
@@ -58,12 +61,15 @@ Respond ONLY with a JSON list in this exact format:
 ]"""
     for attempt in range(3):
         try:
-            response = model.generate_content(prompt, request_options={"timeout": 30})
+            config = JSON_CONFIG if attempt == 0 else PLAIN_CONFIG
+            model = genai.GenerativeModel(MODEL_NAME, generation_config=config)
+            response = model.generate_content(prompt, request_options={"timeout": 90})
             questions = _clean_questions(_extract_json_list(response.text))
             if questions:
                 return questions
-        except Exception:
-            pass
+            print(f"[quiz] attempt {attempt + 1}: no valid questions")
+        except Exception as e:
+            print(f"[quiz] attempt {attempt + 1} failed: {type(e).__name__}: {e}")
         if attempt < 2:
             time.sleep(2)
     return []
