@@ -1,7 +1,6 @@
 import streamlit as st
 import time
 import os
-import base64
 from datetime import datetime
 from database import (
     verify_user, create_user, get_chat_history, get_db,
@@ -11,6 +10,9 @@ from styles import apply_lumo_styles, CARD_CSS
 from content_agent import stream_study_chat
 from quiz_agent import generate_quiz
 from planner_agent import create_study_plan
+from pdf_agent import (
+    extract_pdf_text, summarize_pdf, answer_from_pdf, next_question, check_answer,
+)
 from ui import card, page_header, stat_card, empty_state, progress_bar
 
 st.set_page_config(page_title="Lumo | Study OS", page_icon="🧠", layout="wide")
@@ -30,6 +32,14 @@ if "messages" not in st.session_state: st.session_state.messages = []
 if "timer_running" not in st.session_state: st.session_state.timer_running = False
 if "time_left" not in st.session_state: st.session_state.time_left = 25 * 60
 if "focus_mode" not in st.session_state: st.session_state.focus_mode = False
+if "pdf_key" not in st.session_state: st.session_state.pdf_key = None
+if "pdf_name" not in st.session_state: st.session_state.pdf_name = ""
+if "pdf_text" not in st.session_state: st.session_state.pdf_text = ""
+if "pdf_summary" not in st.session_state: st.session_state.pdf_summary = ""
+if "pdf_question" not in st.session_state: st.session_state.pdf_question = ""
+if "pdf_feedback" not in st.session_state: st.session_state.pdf_feedback = ""
+if "pdf_asked" not in st.session_state: st.session_state.pdf_asked = []
+if "pdf_reply" not in st.session_state: st.session_state.pdf_reply = ""
 
 
 # --- TIMER FRAGMENT (Runs without reloading whole page) ---
@@ -273,32 +283,109 @@ else:
                 )
 
     elif st.session_state.page == "Books":
-        page_header("📚 Library", "Upload and read your PDFs")
-        uploaded_file = st.file_uploader("Upload PDF", type="pdf")
-        if uploaded_file:
-            path = os.path.join("uploads", uploaded_file.name)
-            with open(path, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            get_db().execute(
-                "INSERT INTO books (user_id, title, file_path, uploaded_at) VALUES (?, ?, ?, ?)",
-                (st.session_state.user_id, uploaded_file.name, path, datetime.now()),
-            ).connection.commit()
-            st.success("Uploaded!")
+        page_header("📚 PDF Tutor", "Upload one PDF, then learn from it")
+        uploaded_file = st.file_uploader("Upload a PDF (one at a time)", type="pdf")
 
-        books = get_db().execute(
-            "SELECT * FROM books WHERE user_id=?", (st.session_state.user_id,)
-        ).fetchall()
-        if not books:
-            empty_state("📚", "Your library is empty", "Upload a PDF above to get started.")
-        for b in books:
-            if st.button(f"📖 Read {b['title']}"):
-                with open(b['file_path'], "rb") as f:
-                    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-                st.markdown(
-                    f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" '
-                    f'height="600px"></iframe>',
-                    unsafe_allow_html=True,
+        if uploaded_file:
+            file_key = f"{uploaded_file.name}-{uploaded_file.size}"
+            if st.session_state.pdf_key != file_key:
+                with st.spinner("Reading your PDF..."):
+                    text = extract_pdf_text(uploaded_file.getvalue())
+                st.session_state.pdf_key = file_key
+                st.session_state.pdf_name = uploaded_file.name
+                st.session_state.pdf_text = text
+                st.session_state.pdf_summary = ""
+                st.session_state.pdf_question = ""
+                st.session_state.pdf_feedback = ""
+                st.session_state.pdf_asked = []
+                st.session_state.pdf_reply = ""
+        else:
+            st.session_state.pdf_key = None
+            st.session_state.pdf_name = ""
+            st.session_state.pdf_text = ""
+
+        pdf_text = st.session_state.pdf_text
+
+        if not uploaded_file:
+            empty_state("📚", "No PDF yet", "Upload a PDF above to start learning from it.")
+        elif not pdf_text:
+            st.error("⚠️ I couldn't read any text in this PDF. Scanned or photo PDFs "
+                     "won't work. Try a typed PDF.")
+        else:
+            st.success(f"📄 {st.session_state.pdf_name} is ready")
+            if len(pdf_text) >= 150000:
+                st.warning("This PDF is very long, so I'm only using the first part of it.")
+
+            mode = st.radio(
+                "What do you want to do?",
+                ["Ask me questions", "Explain this", "Summary"],
+                horizontal=True,
+                key="pdf_mode",
+            )
+
+            if mode == "Ask me questions":
+                if not st.session_state.pdf_question:
+                    st.caption("I'll ask you one question at a time from your PDF.")
+                    if st.button("Start", type="primary", use_container_width=True):
+                        with st.spinner("Thinking of a question..."):
+                            q = next_question(pdf_text, st.session_state.pdf_asked)
+                        st.session_state.pdf_question = q
+                        st.session_state.pdf_asked.append(q)
+                        st.session_state.pdf_feedback = ""
+                        st.rerun()
+                else:
+                    n = len(st.session_state.pdf_asked)
+                    st.markdown(f"**Question {n}:** {st.session_state.pdf_question}")
+                    my_answer = st.text_area("Your answer", key=f"pdf_ans_{n}")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        check_clicked = st.button(
+                            "Check answer", type="primary", use_container_width=True
+                        )
+                    with c2:
+                        next_clicked = st.button("Next question", use_container_width=True)
+
+                    if check_clicked:
+                        if my_answer.strip():
+                            with st.spinner("Checking..."):
+                                st.session_state.pdf_feedback = check_answer(
+                                    pdf_text, st.session_state.pdf_question, my_answer
+                                )
+                        else:
+                            st.warning("Type your answer first.")
+
+                    if next_clicked:
+                        with st.spinner("Thinking of a question..."):
+                            q = next_question(pdf_text, st.session_state.pdf_asked)
+                        st.session_state.pdf_question = q
+                        st.session_state.pdf_asked.append(q)
+                        st.session_state.pdf_feedback = ""
+                        st.rerun()
+
+                    if st.session_state.pdf_feedback:
+                        st.markdown(st.session_state.pdf_feedback)
+
+            elif mode == "Explain this":
+                ask_text = st.text_input(
+                    "What do you want to know from this PDF?",
+                    placeholder="e.g. explain normalization",
+                    key="pdf_ask_input",
                 )
+                if st.button("Explain", type="primary", use_container_width=True):
+                    if ask_text.strip():
+                        with st.spinner("Reading the PDF..."):
+                            st.session_state.pdf_reply = answer_from_pdf(pdf_text, ask_text)
+                    else:
+                        st.warning("Type what you want to know first.")
+                if st.session_state.pdf_reply:
+                    st.markdown(st.session_state.pdf_reply)
+
+            else:
+                if st.button("Summarize PDF", type="primary", use_container_width=True):
+                    with st.spinner("Summarizing..."):
+                        st.session_state.pdf_summary = summarize_pdf(pdf_text)
+                if st.session_state.pdf_summary:
+                    st.markdown(st.session_state.pdf_summary)
 
     elif st.session_state.page == "Progress":
         page_header("📊 Progress", "Your study stats at a glance")
