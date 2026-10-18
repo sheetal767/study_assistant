@@ -3,4 +3,5 @@ google-generativeai
 python-dotenv
 bcrypt
 PyPDF2
+pypdf
 pytest
