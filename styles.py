@@ -32,11 +32,12 @@ _TREES = (
     '%3C/g%3E%3C/svg%3E")'
 )
 
-_CSS = """
+# ---------------------------------------------------------------------------
+# AURORA LIGHTS: copied unchanged from the original file (waves, stars, forest,
+# timings, colors, stacking). Do not edit without a design decision.
+# ---------------------------------------------------------------------------
+_AURORA_CSS = """
 <style>
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-
 /* ===== NORTHERN LIGHTS BACKGROUND ===== */
 html { background: #02050b !important; }
 body { background: transparent !important; }
@@ -149,232 +150,16 @@ body { background: transparent !important; }
     .aurora-bg .stars, .aurora-bg .sway, .aurora-bg .wave { animation: none !important; }
 }
 /* ===== END NORTHERN LIGHTS ===== */
+</style>
+"""
 
-.block-container {
-    padding-top: 2.5rem;
-    padding-bottom: 2rem;
-    max-width: 1200px;
-}
-[data-testid="stSidebar"] {
-    background-color: rgba(5, 10, 18, 0.88) !important;
-    border-right: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
-}
-[data-testid="stSidebar"] .block-container { padding-top: 1rem; }
-
-.lumo-card {
-    background: rgba(10, 16, 28, 0.6);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 24px;
-    backdrop-filter: blur(12px);
-    margin-bottom: 1rem;
-}
-
-div.stButton > button {
-    border-radius: 8px;
-    font-weight: 500;
-    transition: all 0.15s ease;
-}
-div.stButton > button:hover { transform: translateY(-1px); }
-div.stButton > button[kind="primary"] {
-    background-color: #6366f1;
-    color: white;
-    border: none;
-    font-weight: 600;
-}
-div.stButton > button[kind="primary"]:hover { background-color: #4f46e5; }
-
-[data-testid="stSidebar"] div.stButton > button { justify-content: flex-start; }
-[data-testid="stSidebar"] div.stButton > button > div,
-[data-testid="stSidebar"] div.stButton > button p {
-    justify-content: flex-start;
-    text-align: left;
-    width: 100%;
-}
-[data-testid="stSidebar"] div.stButton > button[kind="secondary"] {
-    background: transparent;
-    border: 1px solid transparent;
-}
-[data-testid="stSidebar"] div.stButton > button[kind="secondary"]:hover {
-    background: rgba(99, 102, 241, 0.14);
-    border-color: rgba(99, 102, 241, 0.4);
-}
-
-/* Floating timer pill */
-div[data-testid="stPopover"] {
-    position: fixed;
-    top: 0.6rem;
-    right: 10rem;
-    z-index: 1000000;
-    width: auto;
-}
-div[data-testid="stPopover"] button {
-    border-radius: 999px;
-    background: rgba(10, 16, 28, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    backdrop-filter: blur(10px);
-    padding: 0.2rem 0.9rem;
-}
-div[data-testid="stPopover"] button:hover { border-color: rgba(99, 102, 241, 0.7); }
-[data-testid="stElementContainer"]:has(> [data-testid="stPopover"]) {
-    height: 0;
-    min-height: 0;
-    margin-bottom: -1rem;
-}
-div[data-testid="stPopoverBody"] {
-    min-width: min(320px, 90vw);
-    background: rgba(8, 14, 26, 0.92);
-    backdrop-filter: blur(14px);
-}
-
-div[data-baseweb="input"] > div,
-div[data-baseweb="select"] > div { border-radius: 8px; }
-
-[data-testid="stChatMessage"] {
-    background: rgba(8, 14, 26, 0.62);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    padding: 12px 16px;
-    margin-bottom: 8px;
-    backdrop-filter: blur(10px);
-}
-button[data-baseweb="tab"] { font-weight: 600; }
-
+# Phone-size Aurora tweaks, also unchanged from the original.
+_AURORA_MOBILE_CSS = """
+<style>
 @media (max-width: 640px) {
-    .block-container {
-        padding-left: 1rem;
-        padding-right: 1rem;
-        padding-top: 2.5rem;
-    }
     .aurora-bg .wave { filter: blur(4px); }
     .aurora-bg .trees { height: 120px; }
 }
-
-/* ===== PREMIUM THEME (layered over the aurora, no animation changes) ===== */
-:root {
-    --lumo-panel: rgba(9, 15, 28, 0.72);
-    --lumo-panel-strong: rgba(7, 12, 24, 0.86);
-    --lumo-border: rgba(255, 255, 255, 0.10);
-    --lumo-border-hover: rgba(129, 140, 248, 0.55);
-    --lumo-accent: #6366f1;
-    --lumo-accent-2: #8b5cf6;
-    --lumo-text: #e8ecf5;
-    --lumo-muted: #a5b0c6;
-}
-.stApp { color: var(--lumo-text); }
-h1, h2, h3 { letter-spacing: -0.02em; }
-h1 { font-weight: 800; }
-[data-testid="stCaptionContainer"] { color: var(--lumo-muted) !important; }
-
-/* Sidebar */
-[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, rgba(8, 13, 26, 0.92) 0%, rgba(6, 12, 22, 0.88) 100%) !important;
-    border-right: 1px solid var(--lumo-border);
-}
-[data-testid="stSidebar"] button[kind="primary"],
-[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] {
-    background: linear-gradient(135deg, var(--lumo-accent), var(--lumo-accent-2)) !important;
-    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
-}
-
-/* Buttons */
-.stApp button[kind="primary"],
-.stApp button[data-testid="stBaseButton-primary"],
-.stApp button[kind="primaryFormSubmit"] {
-    background: linear-gradient(135deg, var(--lumo-accent), var(--lumo-accent-2)) !important;
-    color: #ffffff !important;
-    border: none !important;
-    font-weight: 600;
-    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
-}
-.stApp button[kind="primary"]:hover,
-.stApp button[data-testid="stBaseButton-primary"]:hover {
-    filter: brightness(1.1);
-}
-.stApp button[kind="secondary"],
-.stApp button[data-testid="stBaseButton-secondary"] {
-    background: rgba(12, 19, 34, 0.6);
-    border: 1px solid var(--lumo-border);
-    color: var(--lumo-text);
-}
-.stApp button[kind="secondary"]:hover,
-.stApp button[data-testid="stBaseButton-secondary"]:hover {
-    background: rgba(99, 102, 241, 0.14);
-    border-color: var(--lumo-border-hover);
-}
-
-/* Inputs */
-div[data-baseweb="input"] > div,
-div[data-baseweb="textarea"],
-div[data-baseweb="select"] > div {
-    background: rgba(8, 14, 26, 0.78) !important;
-    border: 1px solid var(--lumo-border) !important;
-    border-radius: 10px !important;
-}
-div[data-baseweb="input"]:focus-within > div,
-div[data-baseweb="textarea"]:focus-within,
-div[data-baseweb="select"]:focus-within > div {
-    border-color: var(--lumo-accent) !important;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
-}
-
-/* Chat */
-[data-testid="stChatMessage"] {
-    background: var(--lumo-panel);
-    border: 1px solid var(--lumo-border);
-    border-radius: 14px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-}
-
-/* Quiz and radio options as tappable cards */
-div[role="radiogroup"] > label {
-    background: rgba(9, 15, 28, 0.62);
-    border: 1px solid var(--lumo-border);
-    border-radius: 10px;
-    padding: 8px 14px;
-    margin-bottom: 6px;
-    transition: border-color 0.15s ease, background 0.15s ease;
-}
-div[role="radiogroup"] > label:hover {
-    border-color: var(--lumo-border-hover);
-    background: rgba(99, 102, 241, 0.12);
-}
-div[role="radiogroup"] > label:has(input:checked) {
-    border-color: var(--lumo-accent);
-    background: rgba(99, 102, 241, 0.2);
-}
-
-/* Notes, uploads, forms, alerts */
-[data-testid="stExpander"] {
-    background: var(--lumo-panel);
-    border: 1px solid var(--lumo-border);
-    border-radius: 12px;
-}
-[data-testid="stExpander"] details { border: none; }
-[data-testid="stFileUploaderDropzone"] {
-    background: var(--lumo-panel);
-    border: 1px dashed rgba(129, 140, 248, 0.45);
-    border-radius: 14px;
-}
-[data-testid="stForm"] {
-    background: var(--lumo-panel);
-    border: 1px solid var(--lumo-border);
-    border-radius: 14px;
-}
-[data-testid="stAlert"] { border-radius: 12px; }
-
-/* Slim scrollbars */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-
-@media (max-width: 640px) {
-    div.stButton > button { min-height: 44px; }
-    [data-testid="stChatMessage"] { padding: 10px 12px; }
-    h1 { font-size: 1.9rem !important; }
-}
-/* ===== END PREMIUM THEME ===== */
 </style>
 """
 
@@ -389,24 +174,396 @@ _AURORA_HTML = """
 </div>
 """
 
+# ---------------------------------------------------------------------------
+# APP THEME (Lumo, option A: indigo accent, flat surfaces, Newsreader headings)
+# Layered over the Aurora. Nothing below changes the Aurora's look or motion.
+# Body text keeps Streamlit's own Source Sans (see .streamlit/config.toml).
+# ---------------------------------------------------------------------------
+_HOLDER_VERSION = "2"  # bump this to make already-open tabs replace old CSS
+
+_FONT_LINK = (
+    '<link rel="stylesheet" '
+    'href="https://fonts.googleapis.com/css2?family=Newsreader:wght@500;600&display=swap">'
+)
+
+_THEME_CSS = """
+<style>
+#MainMenu {visibility: hidden;}
+footer {visibility: hidden;}
+
+/* ===== TOKENS ===== */
+:root {
+    --lumo-bg: #02050b;
+    --lumo-plate: rgba(2, 5, 11, 0.72);
+    --lumo-plate-strong: rgba(2, 5, 11, 0.88);
+    --lumo-sidebar: rgba(2, 5, 11, 0.80);
+    --lumo-border: #1c2536;
+    --lumo-border-input: #6b7894;
+    --lumo-accent: #6366f1;
+    --lumo-accent-fill: #4f46e5;
+    --lumo-accent-fill-hover: #4338ca;
+    --lumo-accent-text: #818cf8;
+    --lumo-text: #e8ecf5;
+    --lumo-muted: #a5b0c6;
+    --lumo-ok: #4ade80;
+    --lumo-warn: #fbbf24;
+    --lumo-err: #f87171;
+    --lumo-radius: 8px;
+    --lumo-font-head: 'Newsreader', Georgia, 'Times New Roman', serif;
+}
+
+/* ===== LAYOUT ===== */
+.stApp { color: var(--lumo-text); }
+.block-container {
+    max-width: 1040px;
+    padding: 2.5rem 1.5rem 2rem;
+}
+[data-testid="stSidebar"] {
+    background: var(--lumo-sidebar) !important;
+    border-right: 1px solid var(--lumo-border);
+}
+[data-testid="stSidebar"] .block-container { padding-top: 1rem; }
+
+/* ===== TYPE ===== */
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li {
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    max-width: 72ch;
+}
+[data-testid="stWidgetLabel"] p {
+    font-size: 0.875rem !important;
+    font-weight: 600;
+    line-height: 1.43;
+}
+[data-testid="stCaptionContainer"],
+[data-testid="stCaptionContainer"] p {
+    color: var(--lumo-muted) !important;
+    font-size: 0.875rem !important;
+    line-height: 1.43 !important;
+}
+.stApp h1, .stApp h2, .stApp h3, .stApp h4 {
+    font-family: var(--lumo-font-head) !important;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--lumo-text);
+}
+.stApp h1:not([style*="font-size"]) {
+    font-size: 2.25rem !important;
+    line-height: 1.17 !important;
+    letter-spacing: -0.02em;
+}
+.stApp h2, .stApp h3, .stApp h4 {
+    font-size: 1.375rem !important;
+    line-height: 1.27 !important;
+}
+/* Timer digits (headings with their own inline size): plain sans, aligned numerals */
+.stApp h1[style*="font-size"] {
+    font-family: inherit !important;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+[data-testid="stMarkdownContainer"] a { color: var(--lumo-accent-text); }
+
+/* Opening screen helpers (used by app.py) */
+.lumo-hero-title {
+    font-family: var(--lumo-font-head);
+    font-weight: 600;
+    font-size: 3.5rem;
+    line-height: 1.07;
+    letter-spacing: -0.02em;
+    margin: 0 0 12px 0;
+    color: var(--lumo-text);
+}
+.lumo-lede {
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    max-width: 60ch;
+    color: var(--lumo-text);
+    margin: 0;
+}
+
+/* ===== SURFACES (flat, no blur, no shadow) ===== */
+.lumo-card, .sf-card,
+[data-testid="stChatMessage"],
+[data-testid="stExpander"],
+[data-testid="stForm"],
+[data-testid="stVerticalBlockBorderWrapper"] {
+    background: var(--lumo-plate);
+    border: 1px solid var(--lumo-border);
+    border-radius: var(--lumo-radius);
+}
+.lumo-card, .sf-card { padding: 16px 20px; margin-bottom: 12px; }
+.lumo-card { padding: 24px; }
+.sf-card h4 { margin: 0 0 6px 0; }
+.sf-card p { margin: 0; color: var(--lumo-muted); }
+[data-testid="stChatMessage"] {
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    max-width: 760px;
+}
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]),
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+    border-left: 3px solid var(--lumo-accent-text);
+}
+[data-testid="stExpander"] details { border: none; }
+[data-testid="stFileUploaderDropzone"] {
+    background: var(--lumo-plate);
+    border: 1px dashed var(--lumo-border-input);
+    border-radius: var(--lumo-radius);
+}
+[data-testid="stAlert"],
+[data-testid="stAlertContainer"] {
+    border-radius: var(--lumo-radius);
+    background-image: linear-gradient(var(--lumo-plate), var(--lumo-plate)); /* flat dark layer, keeps text readable */
+}
+
+/* ===== BUTTONS ===== */
+.stApp :is(
+    button[kind="primary"], button[data-testid="stBaseButton-primary"],
+    button[kind="primaryFormSubmit"], button[data-testid="stBaseButton-primaryFormSubmit"],
+    button[kind="secondary"], button[data-testid="stBaseButton-secondary"],
+    button[kind="secondaryFormSubmit"], button[data-testid="stBaseButton-secondaryFormSubmit"]
+) {
+    border-radius: var(--lumo-radius);
+    font-weight: 600;
+    min-height: 44px;
+    box-shadow: none !important;
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+.stApp :is(
+    button[kind="primary"], button[data-testid="stBaseButton-primary"],
+    button[kind="primaryFormSubmit"], button[data-testid="stBaseButton-primaryFormSubmit"]
+) {
+    background: var(--lumo-accent-fill) !important;
+    color: #ffffff !important;
+    border: 1px solid var(--lumo-accent-fill) !important;
+}
+.stApp :is(
+    button[kind="primary"], button[data-testid="stBaseButton-primary"],
+    button[kind="primaryFormSubmit"], button[data-testid="stBaseButton-primaryFormSubmit"]
+):hover {
+    background: var(--lumo-accent-fill-hover) !important;
+    border-color: var(--lumo-accent-fill-hover) !important;
+}
+.stApp :is(
+    button[kind="secondary"], button[data-testid="stBaseButton-secondary"],
+    button[kind="secondaryFormSubmit"], button[data-testid="stBaseButton-secondaryFormSubmit"]
+) {
+    background: var(--lumo-plate) !important;
+    color: var(--lumo-text) !important;
+    border: 1px solid var(--lumo-border-input) !important;
+}
+.stApp :is(
+    button[kind="secondary"], button[data-testid="stBaseButton-secondary"],
+    button[kind="secondaryFormSubmit"], button[data-testid="stBaseButton-secondaryFormSubmit"]
+):hover {
+    background: rgba(99, 102, 241, 0.16) !important;
+    border-color: var(--lumo-accent-text) !important;
+}
+
+/* Sidebar navigation: quiet text rows, the active page is the accent fill */
+[data-testid="stSidebar"] div.stButton > button { justify-content: flex-start; }
+[data-testid="stSidebar"] div.stButton > button > div,
+[data-testid="stSidebar"] div.stButton > button p {
+    justify-content: flex-start;
+    text-align: left;
+    width: 100%;
+}
+[data-testid="stSidebar"] :is(
+    button[kind="secondary"], button[data-testid="stBaseButton-secondary"]
+) {
+    background: transparent !important;
+    border-color: transparent !important;
+}
+[data-testid="stSidebar"] :is(
+    button[kind="secondary"], button[data-testid="stBaseButton-secondary"]
+):hover {
+    background: rgba(99, 102, 241, 0.16) !important;
+    border-color: var(--lumo-accent-text) !important;
+}
+
+/* ===== TIMER (popover) ===== */
+div[data-testid="stPopover"] {
+    position: fixed;
+    top: 0.6rem;
+    right: 10rem;
+    z-index: 1000000;
+    width: auto;
+}
+div[data-testid="stPopover"] button {
+    border-radius: var(--lumo-radius);
+    background: var(--lumo-plate-strong) !important;
+    border: 1px solid var(--lumo-border-input) !important;
+    padding: 0.2rem 0.9rem;
+    min-height: 44px;
+}
+div[data-testid="stPopover"] button:hover { border-color: var(--lumo-accent-text) !important; }
+[data-testid="stElementContainer"]:has(> [data-testid="stPopover"]) {
+    height: 0;
+    min-height: 0;
+    margin-bottom: -1rem;
+}
+div[data-testid="stPopoverBody"] {
+    min-width: min(320px, 90vw);
+    background: var(--lumo-plate-strong);
+    border: 1px solid var(--lumo-border);
+}
+
+/* ===== INPUTS ===== */
+div[data-baseweb="input"] > div,
+div[data-baseweb="textarea"],
+div[data-baseweb="select"] > div {
+    background: rgba(2, 5, 11, 0.80) !important;
+    border: 1px solid var(--lumo-border-input) !important;
+    border-radius: var(--lumo-radius) !important;
+}
+input::placeholder, textarea::placeholder { color: var(--lumo-muted) !important; opacity: 1; }
+
+/* ===== FOCUS (solid outline, never a glow) ===== */
+div[data-baseweb="input"]:focus-within > div,
+div[data-baseweb="textarea"]:focus-within,
+div[data-baseweb="select"]:focus-within > div {
+    border-color: var(--lumo-accent-text) !important;
+    outline: 2px solid var(--lumo-accent-text);
+    outline-offset: 2px;
+}
+[data-testid="stChatInput"]:focus-within {
+    outline: 2px solid var(--lumo-accent-text);
+    outline-offset: 2px;
+}
+.stApp :is(button, a, summary, [role="tab"]):focus-visible {
+    outline: 2px solid var(--lumo-accent-text) !important;
+    outline-offset: 2px;
+}
+div[role="radiogroup"] > label:has(input:focus-visible),
+label[data-baseweb="checkbox"]:has(input:focus-visible) {
+    outline: 2px solid var(--lumo-accent-text);
+    outline-offset: 2px;
+}
+
+/* ===== QUIZ / RADIO OPTIONS AS TAPPABLE ROWS ===== */
+div[role="radiogroup"] > label {
+    background: var(--lumo-plate);
+    border: 1px solid var(--lumo-border);
+    border-radius: var(--lumo-radius);
+    padding: 8px 14px;
+    margin-bottom: 6px;
+    transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+div[role="radiogroup"] > label:hover {
+    border-color: var(--lumo-accent-text);
+    background: rgba(99, 102, 241, 0.14);
+}
+div[role="radiogroup"] > label:has(input:checked) {
+    border-color: var(--lumo-accent-text);
+    background: rgba(99, 102, 241, 0.22);
+}
+
+button[data-baseweb="tab"] { font-weight: 600; min-height: 44px; }
+
+/* ===== PHONE NAVIGATION STRIP =====
+   app.py puts <span class="lumo-navmark"></span> right before a horizontal
+   st.radio. Hidden on desktop (sidebar is used); a scrolling tab strip on phones. */
+[data-testid="stElementContainer"]:has(.lumo-navmark) { display: none; }
+@media (min-width: 641px) {
+    [data-testid="stElementContainer"]:has(.lumo-navmark) + [data-testid="stElementContainer"] {
+        display: none;
+    }
+}
+
+/* ===== SCROLLBARS ===== */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ===== PHONES ===== */
+@media (max-width: 640px) {
+    .block-container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+        padding-top: 2.5rem;
+    }
+    [data-testid="stMarkdownContainer"] p,
+    [data-testid="stMarkdownContainer"] li { font-size: 1rem; line-height: 1.625; }
+    .stApp h1:not([style*="font-size"]) { font-size: 1.75rem !important; line-height: 1.21 !important; }
+    .stApp h2, .stApp h3, .stApp h4 { font-size: 1.125rem !important; line-height: 1.44 !important; }
+    .lumo-hero-title { font-size: 2.5rem; line-height: 1.1; }
+    .stApp :is(
+        button[kind="primary"], button[data-testid="stBaseButton-primary"],
+        button[kind="primaryFormSubmit"], button[data-testid="stBaseButton-primaryFormSubmit"],
+        button[kind="secondary"], button[data-testid="stBaseButton-secondary"],
+        button[kind="secondaryFormSubmit"], button[data-testid="stBaseButton-secondaryFormSubmit"]
+    ) { min-height: 48px; }
+    [data-testid="stChatMessage"] { padding: 10px 12px; }
+
+    [data-testid="stElementContainer"]:has(.lumo-navmark) + [data-testid="stElementContainer"] div[role="radiogroup"] {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 6px;
+        padding-bottom: 4px;
+    }
+    [data-testid="stElementContainer"]:has(.lumo-navmark) + [data-testid="stElementContainer"] div[role="radiogroup"] > label {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        min-height: 44px;
+        margin-bottom: 0;
+        padding: 0 14px;
+        display: flex;
+        align-items: center;
+    }
+    [data-testid="stElementContainer"]:has(.lumo-navmark) + [data-testid="stElementContainer"] div[role="radiogroup"] > label > div:first-child {
+        display: none;
+    }
+    [data-testid="stElementContainer"]:has(.lumo-navmark) + [data-testid="stElementContainer"] div[role="radiogroup"] > label:has(input:checked) {
+        background: var(--lumo-accent-fill);
+        border-color: var(--lumo-accent-fill);
+        color: #ffffff;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .stApp * { transition: none !important; }
+}
+</style>
+"""
+
+# Tiny early rule sent as normal page content, so the page is already dark
+# (never white) before the injected Aurora arrives.
+_EARLY_CSS = (
+    "<style>html{background:#02050b!important}"
+    ".stApp,[data-testid=\"stAppViewContainer\"],[data-testid=\"stMain\"],"
+    "[data-testid=\"stHeader\"]{background:transparent!important}</style>"
+)
+
 
 def apply_lumo_styles():
-    css = (
-        _CSS
+    st.markdown(_EARLY_CSS, unsafe_allow_html=True)
+    aurora_css = (
+        _AURORA_CSS
         .replace("__WAVE1__", _wave("%234ade80", 0.55))
         .replace("__WAVE2__", _wave("%232dd4bf", 0.45))
         .replace("__WAVE3__", _wave("%23a78bfa", 0.38))
         .replace("__TREES__", _TREES)
     )
-    payload = json.dumps(_AURORA_HTML + css)
-    # Inject straight into the page (Streamlit ignores big style blocks sent as text)
+    payload = json.dumps(
+        _FONT_LINK + _AURORA_HTML + aurora_css + _AURORA_MOBILE_CSS + _THEME_CSS
+    )
+    # Inject straight into the page (Streamlit ignores big style blocks sent as text).
+    # If an older copy from a previous deploy is already there, replace it once.
     components.html(
         f"""<script>
 (function() {{
+  var VERSION = '{_HOLDER_VERSION}';
   var d = window.parent.document;
-  if (d.getElementById('lumo-aurora-root')) return;
+  var old = d.getElementById('lumo-aurora-root');
+  if (old) {{
+    if (old.getAttribute('data-v') === VERSION) return;
+    old.remove();
+  }}
   var holder = d.createElement('div');
   holder.id = 'lumo-aurora-root';
+  holder.setAttribute('data-v', VERSION);
   holder.innerHTML = {payload};
   d.body.appendChild(holder);
 }})();
@@ -415,22 +572,5 @@ def apply_lumo_styles():
     )
 
 
-CARD_CSS = """
-<style>
-.sf-card {
-    background: rgba(9, 15, 28, 0.72);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 14px;
-    padding: 16px 20px;
-    margin-bottom: 12px;
-    backdrop-filter: blur(10px);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-.sf-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
-}
-.sf-card h4 { margin: 0 0 6px 0; }
-.sf-card p { margin: 0; opacity: 0.85; }
-</style>
-"""
+# Card styles now live in the theme above; kept so `from styles import CARD_CSS` still works.
+CARD_CSS = "<style>/* card styles live in styles.py */</style>"
