@@ -96,7 +96,7 @@ body { background: transparent !important; }
 .aurora-bg .sway.c { top: 28vh; height: 50vh; animation: aurora-sway 28s ease-in-out infinite alternate; }
 @keyframes aurora-sway {
     from { transform: translateY(-3vh) scaleY(0.92); }
-    to   { transform: translateY(3vh)  scaleY(1.1); }
+    to   { transform: translateY(3vh) scaleY(1.1); }
 }
 
 .aurora-bg .wave {
@@ -145,7 +145,6 @@ body { background: transparent !important; }
     background-position: bottom left;
     background-size: auto 100%;
 }
-
 @media (prefers-reduced-motion: reduce) {
     .aurora-bg .stars, .aurora-bg .sway, .aurora-bg .wave { animation: none !important; }
 }
@@ -156,7 +155,6 @@ body { background: transparent !important; }
     padding-bottom: 2rem;
     max-width: 1200px;
 }
-
 [data-testid="stSidebar"] {
     background-color: rgba(5, 10, 18, 0.88) !important;
     border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -241,7 +239,6 @@ div[data-baseweb="select"] > div { border-radius: 8px; }
     margin-bottom: 8px;
     backdrop-filter: blur(10px);
 }
-
 button[data-baseweb="tab"] { font-weight: 600; }
 
 @media (max-width: 640px) {
@@ -253,17 +250,142 @@ button[data-baseweb="tab"] { font-weight: 600; }
     .aurora-bg .wave { filter: blur(4px); }
     .aurora-bg .trees { height: 120px; }
 }
+
+/* ===== PREMIUM THEME (layered over the aurora, no animation changes) ===== */
+:root {
+    --lumo-panel: rgba(9, 15, 28, 0.72);
+    --lumo-panel-strong: rgba(7, 12, 24, 0.86);
+    --lumo-border: rgba(255, 255, 255, 0.10);
+    --lumo-border-hover: rgba(129, 140, 248, 0.55);
+    --lumo-accent: #6366f1;
+    --lumo-accent-2: #8b5cf6;
+    --lumo-text: #e8ecf5;
+    --lumo-muted: #a5b0c6;
+}
+.stApp { color: var(--lumo-text); }
+h1, h2, h3 { letter-spacing: -0.02em; }
+h1 { font-weight: 800; }
+[data-testid="stCaptionContainer"] { color: var(--lumo-muted) !important; }
+
+/* Sidebar */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, rgba(8, 13, 26, 0.92) 0%, rgba(6, 12, 22, 0.88) 100%) !important;
+    border-right: 1px solid var(--lumo-border);
+}
+[data-testid="stSidebar"] button[kind="primary"],
+[data-testid="stSidebar"] button[data-testid="stBaseButton-primary"] {
+    background: linear-gradient(135deg, var(--lumo-accent), var(--lumo-accent-2)) !important;
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+}
+
+/* Buttons */
+.stApp button[kind="primary"],
+.stApp button[data-testid="stBaseButton-primary"],
+.stApp button[kind="primaryFormSubmit"] {
+    background: linear-gradient(135deg, var(--lumo-accent), var(--lumo-accent-2)) !important;
+    color: #ffffff !important;
+    border: none !important;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+}
+.stApp button[kind="primary"]:hover,
+.stApp button[data-testid="stBaseButton-primary"]:hover {
+    filter: brightness(1.1);
+}
+.stApp button[kind="secondary"],
+.stApp button[data-testid="stBaseButton-secondary"] {
+    background: rgba(12, 19, 34, 0.6);
+    border: 1px solid var(--lumo-border);
+    color: var(--lumo-text);
+}
+.stApp button[kind="secondary"]:hover,
+.stApp button[data-testid="stBaseButton-secondary"]:hover {
+    background: rgba(99, 102, 241, 0.14);
+    border-color: var(--lumo-border-hover);
+}
+
+/* Inputs */
+div[data-baseweb="input"] > div,
+div[data-baseweb="textarea"],
+div[data-baseweb="select"] > div {
+    background: rgba(8, 14, 26, 0.78) !important;
+    border: 1px solid var(--lumo-border) !important;
+    border-radius: 10px !important;
+}
+div[data-baseweb="input"]:focus-within > div,
+div[data-baseweb="textarea"]:focus-within,
+div[data-baseweb="select"]:focus-within > div {
+    border-color: var(--lumo-accent) !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+/* Chat */
+[data-testid="stChatMessage"] {
+    background: var(--lumo-panel);
+    border: 1px solid var(--lumo-border);
+    border-radius: 14px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+/* Quiz and radio options as tappable cards */
+div[role="radiogroup"] > label {
+    background: rgba(9, 15, 28, 0.62);
+    border: 1px solid var(--lumo-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    margin-bottom: 6px;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+div[role="radiogroup"] > label:hover {
+    border-color: var(--lumo-border-hover);
+    background: rgba(99, 102, 241, 0.12);
+}
+div[role="radiogroup"] > label:has(input:checked) {
+    border-color: var(--lumo-accent);
+    background: rgba(99, 102, 241, 0.2);
+}
+
+/* Notes, uploads, forms, alerts */
+[data-testid="stExpander"] {
+    background: var(--lumo-panel);
+    border: 1px solid var(--lumo-border);
+    border-radius: 12px;
+}
+[data-testid="stExpander"] details { border: none; }
+[data-testid="stFileUploaderDropzone"] {
+    background: var(--lumo-panel);
+    border: 1px dashed rgba(129, 140, 248, 0.45);
+    border-radius: 14px;
+}
+[data-testid="stForm"] {
+    background: var(--lumo-panel);
+    border: 1px solid var(--lumo-border);
+    border-radius: 14px;
+}
+[data-testid="stAlert"] { border-radius: 12px; }
+
+/* Slim scrollbars */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@media (max-width: 640px) {
+    div.stButton > button { min-height: 44px; }
+    [data-testid="stChatMessage"] { padding: 10px 12px; }
+    h1 { font-size: 1.9rem !important; }
+}
+/* ===== END PREMIUM THEME ===== */
 </style>
 """
 
 _AURORA_HTML = """
 <div class="aurora-bg">
-<div class="stars s1"></div>
-<div class="stars s2"></div>
-<div class="sway a"><div class="wave w1"></div></div>
-<div class="sway b"><div class="wave w2"></div></div>
-<div class="sway c"><div class="wave w3"></div></div>
-<div class="trees"></div>
+  <div class="stars s1"></div>
+  <div class="stars s2"></div>
+  <div class="sway a"><div class="wave w1"></div></div>
+  <div class="sway b"><div class="wave w2"></div></div>
+  <div class="sway c"><div class="wave w3"></div></div>
+  <div class="trees"></div>
 </div>
 """
 
@@ -280,15 +402,15 @@ def apply_lumo_styles():
     # Inject straight into the page (Streamlit ignores big style blocks sent as text)
     components.html(
         f"""<script>
-        (function() {{
-            var d = window.parent.document;
-            if (d.getElementById('lumo-aurora-root')) return;
-            var holder = d.createElement('div');
-            holder.id = 'lumo-aurora-root';
-            holder.innerHTML = {payload};
-            d.body.appendChild(holder);
-        }})();
-        </script>""",
+(function() {{
+  var d = window.parent.document;
+  if (d.getElementById('lumo-aurora-root')) return;
+  var holder = d.createElement('div');
+  holder.id = 'lumo-aurora-root';
+  holder.innerHTML = {payload};
+  d.body.appendChild(holder);
+}})();
+</script>""",
         height=0,
     )
 
@@ -296,7 +418,7 @@ def apply_lumo_styles():
 CARD_CSS = """
 <style>
 .sf-card {
-    background: rgba(10, 16, 28, 0.6);
+    background: rgba(9, 15, 28, 0.72);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 14px;
     padding: 16px 20px;
