@@ -130,7 +130,7 @@ else:
         # Navigation (active page is highlighted)
         NAV = {
             "Chat": "💬", "Plan": "🗺️", "Quiz": "📝",
-            "Books": "📚", "Progress": "📊", "Notes": "🗒️",
+            "PDF Tutor": "📄", "Progress": "📊", "Notes": "🗒️",
         }
         for p, icon in NAV.items():
             is_active = st.session_state.page == p
@@ -179,6 +179,10 @@ else:
         input_box = st.container()
         with input_box:
             prompt = st.chat_input("Ask about your study material...")
+
+        # A "Learn this" tap on the Plan page sends its question here
+        if not prompt and st.session_state.get("auto_prompt"):
+            prompt = st.session_state.pop("auto_prompt")
 
         if not history and not prompt:
             empty_state("💬", "Start a conversation",
@@ -242,15 +246,30 @@ else:
             for i, module in enumerate(st.session_state.plan):
                 if st.checkbox(f"{i + 1}. {module}", key=f"plan_{subject}_{i}"):
                     done += 1
+                lc1, lc2 = st.columns(2)
+                with lc1:
+                    if st.button("📖 Learn this", key=f"learn_{subject}_{i}",
+                                 use_container_width=True):
+                        st.session_state.auto_prompt = (
+                            f"Explain this topic step by step: {module}"
+                        )
+                        st.session_state.page = "Chat"
+                        st.rerun()
+                with lc2:
+                    if st.button("📝 Quiz me", key=f"quizme_{subject}_{i}",
+                                 use_container_width=True):
+                        st.session_state.quiz_topic_input = module
+                        st.session_state.page = "Quiz"
+                        st.rerun()
             total = len(st.session_state.plan)
             progress_bar(f"{done} of {total} modules done", round(done * 100 / total))
-            st.caption("Tip: ask about each module in the Chat tab, then test yourself in Quiz.")
+            st.caption("Tip: tap Learn this on a module, then Quiz me to test yourself.")
         else:
             empty_state("🗺️", "No plan yet", "Enter a subject above and tap Create Plan.")
 
     elif st.session_state.page == "Quiz":
         page_header("📝 Quiz Generator", "Test yourself on any topic")
-        topic = st.text_input("Topic to quiz on")
+        topic = st.text_input("Topic to quiz on", key="quiz_topic_input")
         diff = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
         if st.button("Generate Quiz", type="primary") and topic:
             with st.spinner("Generating..."):
@@ -282,9 +301,12 @@ else:
                     len(st.session_state.current_quiz),
                 )
 
-    elif st.session_state.page == "Books":
-        page_header("📚 PDF Tutor", "Upload one PDF, then learn from it")
-        uploaded_file = st.file_uploader("Upload a PDF (one at a time)", type="pdf")
+    elif st.session_state.page == "PDF Tutor":
+        page_header("📄 PDF Tutor", "Upload one PDF, then learn from it")
+        uploaded_file = st.file_uploader("Upload a PDF (one at a time, max 10MB)", type="pdf")
+        if uploaded_file and uploaded_file.size > 10 * 1024 * 1024:
+            st.error("⚠️ This PDF is bigger than 10MB. Please upload a smaller one.")
+            uploaded_file = None
 
         if uploaded_file:
             file_key = f"{uploaded_file.name}-{uploaded_file.size}"
@@ -307,7 +329,7 @@ else:
         pdf_text = st.session_state.pdf_text
 
         if not uploaded_file:
-            empty_state("📚", "No PDF yet", "Upload a PDF above to start learning from it.")
+            empty_state("📄", "No PDF yet", "Upload a PDF above to start learning from it.")
         elif not pdf_text:
             st.error("⚠️ I couldn't read any text in this PDF. Scanned or photo PDFs "
                      "won't work. Try a typed PDF.")
