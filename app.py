@@ -130,7 +130,7 @@ else:
         # Navigation (active page is highlighted)
         NAV = {
             "Chat": "💬", "Plan": "🗺️", "Quiz": "📝",
-            "Books": "📚", "Progress": "📊", "Music": "🎧",
+            "Books": "📚", "Progress": "📊", "Notes": "🗒️",
         }
         for p, icon in NAV.items():
             is_active = st.session_state.page == p
@@ -406,15 +406,50 @@ else:
         else:
             empty_state("📝", "No quizzes yet", "Take one in the Quiz tab and your scores will show here.")
 
-    elif st.session_state.page == "Music":
-        page_header("🎧 Focus Music", "Background sounds for studying")
-        st.markdown(
-            "<div class='lumo-card'>⚠️ <b>Note:</b> Some music sites block embedding. "
-            "Click below to open safely.</div>",
-            unsafe_allow_html=True,
+    elif st.session_state.page == "Notes":
+        page_header("🗒️ Quick Notes", "Jot things down while you study")
+        notes_conn = get_db()
+        notes_conn.execute(
+            "CREATE TABLE IF NOT EXISTS notes ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "user_id INTEGER, title TEXT, body TEXT, created_at TEXT)"
         )
-        st.link_button(
-            "Open Focus Music",
-            "https://www.youtube.com/results?search_query=lofi+study+music",
-            use_container_width=True,
-        )
+        notes_conn.commit()
+
+        with st.form("note_form", clear_on_submit=True):
+            n_title = st.text_input("Title (optional)")
+            n_body = st.text_area("Your note", height=150)
+            saved = st.form_submit_button(
+                "💾 Save note", type="primary", use_container_width=True
+            )
+        if saved:
+            if n_body.strip():
+                note_title = n_title.strip() or n_body.strip()[:30]
+                notes_conn.execute(
+                    "INSERT INTO notes (user_id, title, body, created_at) VALUES (?, ?, ?, ?)",
+                    (
+                        st.session_state.user_id,
+                        note_title,
+                        n_body.strip(),
+                        datetime.now().strftime("%d %b %Y, %H:%M"),
+                    ),
+                )
+                notes_conn.commit()
+                st.success("Saved!")
+            else:
+                st.warning("Write something first.")
+
+        notes = notes_conn.execute(
+            "SELECT id, title, body, created_at FROM notes WHERE user_id=? ORDER BY id DESC",
+            (st.session_state.user_id,),
+        ).fetchall()
+
+        if not notes:
+            empty_state("🗒️", "No notes yet", "Write your first note above and tap Save.")
+        for n in notes:
+            with st.expander(f"{n[1]}  ·  {n[3]}"):
+                st.markdown(n[2])
+                if st.button("🗑️ Delete", key=f"del_note_{n[0]}"):
+                    notes_conn.execute("DELETE FROM notes WHERE id=?", (n[0],))
+                    notes_conn.commit()
+                    st.rerun()
