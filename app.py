@@ -31,6 +31,7 @@ if "chat_id" not in st.session_state: st.session_state.chat_id = None
 if "messages" not in st.session_state: st.session_state.messages = []
 if "timer_running" not in st.session_state: st.session_state.timer_running = False
 if "time_left" not in st.session_state: st.session_state.time_left = 25 * 60
+if "timer_total" not in st.session_state: st.session_state.timer_total = 25
 if "focus_mode" not in st.session_state: st.session_state.focus_mode = False
 if "pdf_key" not in st.session_state: st.session_state.pdf_key = None
 if "pdf_name" not in st.session_state: st.session_state.pdf_name = ""
@@ -49,7 +50,7 @@ def render_timer():
         st.session_state.time_left -= 1
         if st.session_state.time_left == 0:
             st.session_state.timer_running = False
-            log_study_time(st.session_state.user_id, 25)  # simplified logging
+            log_study_time(st.session_state.user_id, st.session_state.timer_total)
             st.toast("Time's up! Take a break.", icon="🔔")
     mins, secs = divmod(st.session_state.time_left, 60)
     st.markdown(f"<h1 style='text-align: center; font-size: 3rem;'>{mins:02d}:{secs:02d}</h1>",
@@ -58,18 +59,22 @@ def render_timer():
 
 # --- TIMER BUTTON CALLBACKS ---
 def _set_timer(minutes):
-    st.session_state.update(time_left=minutes * 60, timer_running=False)
+    st.session_state.update(
+        time_left=minutes * 60, timer_running=False, timer_total=minutes
+    )
 
 
 def _toggle_timer():
     if st.session_state.time_left <= 0:
         st.session_state.time_left = 25 * 60
+        st.session_state.timer_total = 25
     st.session_state.timer_running = not st.session_state.timer_running
 
 
 def _start_focus():
     if st.session_state.time_left <= 0:
         st.session_state.time_left = 25 * 60
+        st.session_state.timer_total = 25
     st.session_state.update(focus_mode=True, timer_running=True)
 
 
@@ -231,8 +236,12 @@ else:
 
     elif st.session_state.page == "Plan":
         page_header("🗺️ Study Plan", "Break any subject into bite-sized lessons")
-        plan_topic = st.text_input("Subject", placeholder="e.g. DBMS", key="plan_topic_input")
-        weak_text = st.text_input("Weak areas (optional, separated by commas)", key="plan_weak_input")
+        pc1, pc2 = st.columns(2)
+        with pc1:
+            plan_topic = st.text_input("Subject", placeholder="e.g. DBMS", key="plan_topic_input")
+        with pc2:
+            weak_text = st.text_input("Weak areas (optional, separated by commas)",
+                                      key="plan_weak_input")
         if st.button("Create Plan", type="primary") and plan_topic:
             with st.spinner("Building your plan..."):
                 weak_list = [w.strip() for w in weak_text.split(",") if w.strip()]
@@ -244,23 +253,24 @@ else:
             st.markdown(f"#### Your plan for {subject}")
             done = 0
             for i, module in enumerate(st.session_state.plan):
-                if st.checkbox(f"{i + 1}. {module}", key=f"plan_{subject}_{i}"):
-                    done += 1
-                lc1, lc2 = st.columns(2)
-                with lc1:
-                    if st.button("📖 Learn this", key=f"learn_{subject}_{i}",
-                                 use_container_width=True):
-                        st.session_state.auto_prompt = (
-                            f"Explain this topic step by step: {module}"
-                        )
-                        st.session_state.page = "Chat"
-                        st.rerun()
-                with lc2:
-                    if st.button("📝 Quiz me", key=f"quizme_{subject}_{i}",
-                                 use_container_width=True):
-                        st.session_state.quiz_topic_input = module
-                        st.session_state.page = "Quiz"
-                        st.rerun()
+                with st.container(border=True):
+                    if st.checkbox(f"{i + 1}. {module}", key=f"plan_{subject}_{i}"):
+                        done += 1
+                    lc1, lc2 = st.columns(2)
+                    with lc1:
+                        if st.button("📖 Learn this", key=f"learn_{subject}_{i}",
+                                     use_container_width=True):
+                            st.session_state.auto_prompt = (
+                                f"Explain this topic step by step: {module}"
+                            )
+                            st.session_state.page = "Chat"
+                            st.rerun()
+                    with lc2:
+                        if st.button("📝 Quiz me", key=f"quizme_{subject}_{i}",
+                                     use_container_width=True):
+                            st.session_state.quiz_topic_input = module
+                            st.session_state.page = "Quiz"
+                            st.rerun()
             total = len(st.session_state.plan)
             progress_bar(f"{done} of {total} modules done", round(done * 100 / total))
             st.caption("Tip: tap Learn this on a module, then Quiz me to test yourself.")
@@ -269,37 +279,57 @@ else:
 
     elif st.session_state.page == "Quiz":
         page_header("📝 Quiz Generator", "Test yourself on any topic")
-        topic = st.text_input("Topic to quiz on", key="quiz_topic_input")
-        diff = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
+        qc1, qc2 = st.columns([3, 1])
+        with qc1:
+            topic = st.text_input("Topic to quiz on", key="quiz_topic_input")
+        with qc2:
+            diff = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
         if st.button("Generate Quiz", type="primary") and topic:
             with st.spinner("Generating..."):
-                st.session_state.current_quiz = generate_quiz(topic, 3, diff)
-                st.session_state.quiz_topic = topic
-            if not st.session_state.current_quiz:
+                new_quiz = generate_quiz(topic, 3, diff)
+            # Forget answers picked in the previous quiz so they can't leak into this one
+            for stale in [k for k in st.session_state if k[:1] == "q" and k[1:].isdigit()]:
+                del st.session_state[stale]
+            st.session_state.current_quiz = new_quiz
+            st.session_state.quiz_topic = topic
+            st.session_state.quiz_saved = False
+            if not new_quiz:
                 st.error("⚠️ The quiz didn't generate properly. Please try again.")
 
         if st.session_state.get("current_quiz"):
+            quiz = st.session_state.current_quiz
             answers = []
-            for i, q in enumerate(st.session_state.current_quiz):
-                st.markdown(f"**Q{i+1}: {q['question']}**")
-                ans = st.radio("Options", q['options'], key=f"q{i}", index=None,
-                               label_visibility="collapsed")
-                answers.append(q['options'].index(ans) if ans else -1)
+            for i, q in enumerate(quiz):
+                with st.container(border=True):
+                    st.markdown(f"**Q{i+1}: {q['question']}**")
+                    ans = st.radio("Options", q['options'], key=f"q{i}", index=None,
+                                   label_visibility="collapsed")
+                answers.append(q['options'].index(ans) if ans in q['options'] else -1)
 
             if st.button("Submit Answers"):
-                correct_count = 0
-                for i, q in enumerate(st.session_state.current_quiz):
-                    if answers[i] == q['correct_index']:
-                        st.success(f"Q{i+1}: Correct!")
-                        correct_count += 1
+                if -1 in answers:
+                    st.warning("Please answer every question before submitting.")
+                else:
+                    correct_count = 0
+                    for i, q in enumerate(quiz):
+                        if answers[i] == q['correct_index']:
+                            st.success(f"Q{i+1}: Correct!")
+                            correct_count += 1
+                        else:
+                            st.error(f"Q{i+1}: Wrong. {q['explanation']}")
+                    progress_bar(f"Score: {correct_count} of {len(quiz)}",
+                                 round(correct_count * 100 / len(quiz)))
+                    # Save the score once per quiz, not on every Submit click
+                    if not st.session_state.get("quiz_saved"):
+                        save_quiz_score(
+                            st.session_state.user_id,
+                            st.session_state.get("quiz_topic", topic),
+                            correct_count,
+                            len(quiz),
+                        )
+                        st.session_state.quiz_saved = True
                     else:
-                        st.error(f"Q{i+1}: Wrong. {q['explanation']}")
-                save_quiz_score(
-                    st.session_state.user_id,
-                    st.session_state.get("quiz_topic", topic),
-                    correct_count,
-                    len(st.session_state.current_quiz),
-                )
+                        st.caption("Your score for this quiz was already saved.")
 
     elif st.session_state.page == "PDF Tutor":
         page_header("📄 PDF Tutor", "Upload one PDF, then learn from it")
@@ -327,6 +357,7 @@ else:
             st.session_state.pdf_text = ""
 
         pdf_text = st.session_state.pdf_text
+        PDF_BUSY = "Couldn't get a reply right now. Please try again."
 
         if not uploaded_file:
             empty_state("📄", "No PDF yet", "Upload a PDF above to start learning from it.")
@@ -351,10 +382,13 @@ else:
                     if st.button("Start", type="primary", use_container_width=True):
                         with st.spinner("Thinking of a question..."):
                             q = next_question(pdf_text, st.session_state.pdf_asked)
-                        st.session_state.pdf_question = q
-                        st.session_state.pdf_asked.append(q)
-                        st.session_state.pdf_feedback = ""
-                        st.rerun()
+                        if q:
+                            st.session_state.pdf_question = q
+                            st.session_state.pdf_asked.append(q)
+                            st.session_state.pdf_feedback = ""
+                            st.rerun()
+                        else:
+                            st.error(PDF_BUSY)
                 else:
                     n = len(st.session_state.pdf_asked)
                     st.markdown(f"**Question {n}:** {st.session_state.pdf_question}")
@@ -370,19 +404,26 @@ else:
                     if check_clicked:
                         if my_answer.strip():
                             with st.spinner("Checking..."):
-                                st.session_state.pdf_feedback = check_answer(
+                                fb = check_answer(
                                     pdf_text, st.session_state.pdf_question, my_answer
                                 )
+                            if fb:
+                                st.session_state.pdf_feedback = fb
+                            else:
+                                st.error(PDF_BUSY)
                         else:
                             st.warning("Type your answer first.")
 
                     if next_clicked:
                         with st.spinner("Thinking of a question..."):
                             q = next_question(pdf_text, st.session_state.pdf_asked)
-                        st.session_state.pdf_question = q
-                        st.session_state.pdf_asked.append(q)
-                        st.session_state.pdf_feedback = ""
-                        st.rerun()
+                        if q:
+                            st.session_state.pdf_question = q
+                            st.session_state.pdf_asked.append(q)
+                            st.session_state.pdf_feedback = ""
+                            st.rerun()
+                        else:
+                            st.error(PDF_BUSY)
 
                     if st.session_state.pdf_feedback:
                         st.markdown(st.session_state.pdf_feedback)
@@ -396,7 +437,11 @@ else:
                 if st.button("Explain", type="primary", use_container_width=True):
                     if ask_text.strip():
                         with st.spinner("Reading the PDF..."):
-                            st.session_state.pdf_reply = answer_from_pdf(pdf_text, ask_text)
+                            reply = answer_from_pdf(pdf_text, ask_text)
+                        if reply:
+                            st.session_state.pdf_reply = reply
+                        else:
+                            st.error(PDF_BUSY)
                     else:
                         st.warning("Type what you want to know first.")
                 if st.session_state.pdf_reply:
@@ -405,7 +450,11 @@ else:
             else:
                 if st.button("Summarize PDF", type="primary", use_container_width=True):
                     with st.spinner("Summarizing..."):
-                        st.session_state.pdf_summary = summarize_pdf(pdf_text)
+                        summary = summarize_pdf(pdf_text)
+                    if summary:
+                        st.session_state.pdf_summary = summary
+                    else:
+                        st.error(PDF_BUSY)
                 if st.session_state.pdf_summary:
                     st.markdown(st.session_state.pdf_summary)
 
