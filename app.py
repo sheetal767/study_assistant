@@ -15,9 +15,21 @@ from pdf_agent import (
 )
 from ui import card, page_header, stat_card, empty_state, progress_bar
 
-st.set_page_config(page_title="Lumo | Study OS", page_icon="🧠", layout="wide")
+st.set_page_config(page_title="Lumo", layout="wide")
 st.markdown(CARD_CSS, unsafe_allow_html=True)
 apply_lumo_styles()
+
+# Set to False to land straight in Chat after login (no Start page).
+SHOW_START_PAGE = True
+
+PAGE_ORDER = (["Start"] if SHOW_START_PAGE else []) + [
+    "Chat", "Plan", "Quiz", "PDF Tutor", "Progress", "Notes",
+]
+NAV_ICONS = {
+    "Start": ":material/home:", "Chat": ":material/chat:", "Plan": ":material/map:",
+    "Quiz": ":material/quiz:", "PDF Tutor": ":material/description:",
+    "Progress": ":material/bar_chart:", "Notes": ":material/sticky_note_2:",
+}
 
 # Ensure uploads folder exists
 if not os.path.exists("uploads"):
@@ -26,7 +38,7 @@ if not os.path.exists("uploads"):
 # --- SESSION STATE INITIALIZATION ---
 if "user_id" not in st.session_state: st.session_state.user_id = None
 if "username" not in st.session_state: st.session_state.username = None
-if "page" not in st.session_state: st.session_state.page = "Chat"
+if "page" not in st.session_state: st.session_state.page = PAGE_ORDER[0]
 if "chat_id" not in st.session_state: st.session_state.chat_id = None
 if "messages" not in st.session_state: st.session_state.messages = []
 if "timer_running" not in st.session_state: st.session_state.timer_running = False
@@ -43,6 +55,33 @@ if "pdf_asked" not in st.session_state: st.session_state.pdf_asked = []
 if "pdf_reply" not in st.session_state: st.session_state.pdf_reply = ""
 
 
+# --- MESSAGE HELPERS (status = icon + words, never colour alone) ---
+def _ok(msg):
+    st.success(msg, icon=":material/check_circle:")
+
+
+def _warn(msg):
+    st.warning(msg, icon=":material/warning:")
+
+
+def _err(msg):
+    st.error(msg, icon=":material/error:")
+
+
+# The PDF helper returns this sentence when Gemini fails (see pdf_agent._ask).
+# Treat it as an error instead of showing it as a question or an answer.
+PDF_FAIL_PREFIX = "Sorry, I couldn't get a reply right now"
+
+
+def _pdf_failed(text):
+    return (not text) or text.startswith(PDF_FAIL_PREFIX)
+
+
+# The planner returns this exact list when it can't reach Gemini.
+def _is_fallback_plan(topic, plan):
+    return plan == [f"Introduction to {topic}", "Core Concepts", f"Advanced {topic}"]
+
+
 # --- TIMER FRAGMENT (Runs without reloading whole page) ---
 @st.fragment(run_every=1)
 def render_timer():
@@ -51,7 +90,7 @@ def render_timer():
         if st.session_state.time_left == 0:
             st.session_state.timer_running = False
             log_study_time(st.session_state.user_id, st.session_state.timer_total)
-            st.toast("Time's up! Take a break.", icon="🔔")
+            st.toast("Time's up! Take a break.")
     mins, secs = divmod(st.session_state.time_left, 60)
     st.markdown(f"<h1 style='text-align: center; font-size: 3rem;'>{mins:02d}:{secs:02d}</h1>",
                 unsafe_allow_html=True)
@@ -78,33 +117,60 @@ def _start_focus():
     st.session_state.update(focus_mode=True, timer_running=True)
 
 
-# --- LOGIN / SIGNUP PAGE ---
+def _sync_nav():
+    """Phone tab strip -> current page."""
+    st.session_state.page = st.session_state.nav_strip
+
+
+def _go(page):
+    st.session_state.page = page
+    st.rerun()
+
+
+# --- OPENING SCREEN: LOGIN / SIGN UP ---
 def show_login():
-    st.markdown("<div style='max-width: 400px; margin: 10vh auto;' class='lumo-card'>",
-                unsafe_allow_html=True)
-    st.markdown("<h2 style='text-align: center;'>🧠 Lumo</h2>", unsafe_allow_html=True)
-    tab1, tab2 = st.tabs(["Login", "Sign Up"])
-    with tab1:
-        u_login = st.text_input("Username", key="login_u")
-        p_login = st.text_input("Password", type="password", key="login_p")
-        if st.button("Login", type="primary", use_container_width=True):
-            uid = verify_user(u_login, p_login)
-            if uid:
-                st.session_state.user_id = uid
-                st.session_state.username = u_login
-                st.rerun()
-            else:
-                st.error("Invalid credentials.")
-    with tab2:
-        u_reg = st.text_input("New Username", key="reg_u")
-        p_reg = st.text_input("New Password", type="password", key="reg_p")
-        if st.button("Sign Up", type="primary", use_container_width=True):
-            uid = create_user(u_reg, p_reg)
-            if uid:
-                st.success("Account created! Please log in.")
-            else:
-                st.error("Username already exists.")
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown(
+        """
+        <div style="margin: 6vh 0 24px 0">
+            <div role="heading" aria-level="1" class="lumo-hero-title">Lumo</div>
+            <div class="lumo-card" style="max-width:560px;padding:12px 16px;margin:0">
+                <p class="lumo-lede">Lumo explains topics, builds study plans, quizzes you,
+                and answers questions from a PDF you upload.</p>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    form_col, _ = st.columns([2, 3])
+    with form_col:
+        with st.container(border=True):
+            tab1, tab2 = st.tabs(["Log in", "Create account"])
+            with tab1:
+                u_login = st.text_input("Username", key="login_u")
+                p_login = st.text_input("Password", type="password", key="login_p")
+                if st.button("Log in", type="primary", use_container_width=True):
+                    if not u_login.strip() or not p_login:
+                        _warn("Enter your username and password.")
+                    else:
+                        uid = verify_user(u_login, p_login)
+                        if uid:
+                            st.session_state.user_id = uid
+                            st.session_state.username = u_login
+                            st.rerun()
+                        else:
+                            _err("Wrong username or password.")
+            with tab2:
+                u_reg = st.text_input("New username", key="reg_u")
+                p_reg = st.text_input("New password", type="password", key="reg_p")
+                if st.button("Create account", type="primary", use_container_width=True):
+                    if not u_reg.strip() or not p_reg:
+                        _warn("Choose a username and a password.")
+                    else:
+                        uid = create_user(u_reg, p_reg)
+                        if uid:
+                            _ok("Account created. Please log in.")
+                        else:
+                            _err("That username is already taken.")
 
 
 # --- MAIN APP LAYOUT ---
@@ -114,18 +180,22 @@ else:
     # FOCUS MODE WRAPPER
     if st.session_state.focus_mode:
         st.markdown(
-            "<style>.block-container{max-width:100%!important; padding:0!important;} "
+            "<style>.block-container{max-width:100%!important; padding:1.5rem 1rem!important;} "
             "section[data-testid='stSidebar'] {display: none;}</style>",
             unsafe_allow_html=True,
         )
-        st.button("Exit Focus Mode", on_click=lambda: st.session_state.update(focus_mode=False))
+        st.button("Exit focus mode", icon=":material/close:",
+                  on_click=lambda: st.session_state.update(focus_mode=False))
         render_timer()
         st.stop()
 
+    if st.session_state.page not in PAGE_ORDER:
+        st.session_state.page = PAGE_ORDER[0]
+
     # SIDEBAR
     with st.sidebar:
-        st.markdown(f"**Welcome back, {st.session_state.username}** 👋")
-        if st.button("➕ New Chat", use_container_width=True):
+        st.markdown(f"**Welcome back, {st.session_state.username}**")
+        if st.button("New chat", icon=":material/add:", use_container_width=True):
             st.session_state.chat_id = None
             st.session_state.messages = []
             st.session_state.page = "Chat"
@@ -133,14 +203,11 @@ else:
         st.markdown("---")
 
         # Navigation (active page is highlighted)
-        NAV = {
-            "Chat": "💬", "Plan": "🗺️", "Quiz": "📝",
-            "PDF Tutor": "📄", "Progress": "📊", "Notes": "🗒️",
-        }
-        for p, icon in NAV.items():
+        for p in PAGE_ORDER:
             is_active = st.session_state.page == p
             if st.button(
-                f"{icon} {p}",
+                p,
+                icon=NAV_ICONS[p],
                 use_container_width=True,
                 type="primary" if is_active else "secondary",
                 key=f"nav_{p}",
@@ -149,14 +216,14 @@ else:
                 st.rerun()
 
         st.markdown("---")
-        if st.button("🚪 Logout", use_container_width=True):
+        if st.button("Log out", icon=":material/logout:", use_container_width=True):
             st.session_state.clear()
             st.rerun()
 
     # FLOATING TIMER (top right pill, opens a popup panel on every page)
-    timer_label = "⏱️ Timer ●" if st.session_state.timer_running else "⏱️ Timer"
-    with st.popover(timer_label):
-        st.markdown("#### ⏱️ Study Timer")
+    timer_label = "Timer (running)" if st.session_state.timer_running else "Timer"
+    with st.popover(timer_label, icon=":material/timer:"):
+        st.markdown("#### Study timer")
         render_timer()
         p1, p2, p3 = st.columns(3)
         with p1:
@@ -173,11 +240,59 @@ else:
                 on_click=_toggle_timer, use_container_width=True,
             )
         with b2:
-            st.button("🎯 Focus", key="tm_focus", on_click=_start_focus, use_container_width=True)
+            st.button("Focus", key="tm_focus", icon=":material/center_focus_strong:",
+                      on_click=_start_focus, use_container_width=True)
+
+    # PHONE NAVIGATION STRIP (hidden on desktop by CSS; the sidebar is used there)
+    st.session_state.nav_strip = st.session_state.page
+    st.markdown('<span class="lumo-navmark"></span>', unsafe_allow_html=True)
+    st.radio("Go to page", PAGE_ORDER, key="nav_strip", horizontal=True,
+             label_visibility="collapsed", on_change=_sync_nav)
 
     # PAGES
-    if st.session_state.page == "Chat":
-        page_header("Study Chat", "Ask anything about your study material")
+    if st.session_state.page == "Start":
+        page_header(f"Welcome back, {st.session_state.username}", "Pick where to start.")
+        s1, s2, s3 = st.columns(3)
+        with s1:
+            with st.container(border=True):
+                st.markdown("#### Ask a question")
+                st.caption("Get a step-by-step explanation of any topic.")
+                if st.button("Open chat", key="start_chat", type="primary",
+                             use_container_width=True):
+                    _go("Chat")
+        with s2:
+            with st.container(border=True):
+                st.markdown("#### Make a plan")
+                st.caption("Break a subject into short lessons, easiest first.")
+                if st.button("Open plan", key="start_plan", use_container_width=True):
+                    _go("Plan")
+        with s3:
+            with st.container(border=True):
+                st.markdown("#### Study from a PDF")
+                st.caption("Upload a typed PDF, then get questions, explanations or a summary.")
+                if st.button("Open PDF Tutor", key="start_pdf", use_container_width=True):
+                    _go("PDF Tutor")
+
+        start_stats = get_progress_stats(st.session_state.user_id)
+        if start_stats["minutes"] or start_stats["quizzes"]:
+            st.markdown("#### Your progress")
+            t1, t2, t3 = st.columns(3)
+            with t1:
+                stat_card("Minutes studied", start_stats["minutes"])
+            with t2:
+                stat_card("Quizzes taken", start_stats["quizzes"])
+            with t3:
+                stat_card("Average score", f"{start_stats['avg']}%")
+            if start_stats["recent"]:
+                latest = start_stats["recent"][0]
+                latest_pct = round(latest["score"] * 100 / latest["total"]) if latest["total"] else 0
+                progress_bar(
+                    f"Latest quiz: {latest['topic']} ({latest['score']}/{latest['total']})",
+                    latest_pct,
+                )
+
+    elif st.session_state.page == "Chat":
+        page_header("Study chat", "Ask anything about your study material")
         history = list(st.session_state.messages)
 
         # Chat box sits right under the title (inside a container = not pinned to the bottom)
@@ -190,8 +305,10 @@ else:
             prompt = st.session_state.pop("auto_prompt")
 
         if not history and not prompt:
-            empty_state("💬", "Start a conversation",
+            empty_state("", "Start a conversation",
                         "Ask about any topic above and I'll explain it step by step.")
+        else:
+            st.caption("Newest messages appear first.")
 
         # Newest exchange appears right under the chat box
         live = st.container()
@@ -213,7 +330,7 @@ else:
             with live:
                 with st.chat_message("user"):
                     st.markdown(prompt)
-                with st.chat_message("assistant", avatar="🧠"):
+                with st.chat_message("assistant"):
                     response_placeholder = st.empty()
                     full_resp = ""
                     for chunk in stream_study_chat(prompt, history):
@@ -231,26 +348,35 @@ else:
                     with st.chat_message("user"):
                         st.markdown(msg["content"])
                 else:
-                    with st.chat_message("assistant", avatar="🧠"):
+                    with st.chat_message("assistant"):
                         st.markdown(msg["content"])
 
     elif st.session_state.page == "Plan":
-        page_header("🗺️ Study Plan", "Break any subject into bite-sized lessons")
+        page_header("Study plan", "Break any subject into bite-sized lessons")
         pc1, pc2 = st.columns(2)
         with pc1:
             plan_topic = st.text_input("Subject", placeholder="e.g. DBMS", key="plan_topic_input")
         with pc2:
             weak_text = st.text_input("Weak areas (optional, separated by commas)",
                                       key="plan_weak_input")
-        if st.button("Create Plan", type="primary") and plan_topic:
-            with st.spinner("Building your plan..."):
-                weak_list = [w.strip() for w in weak_text.split(",") if w.strip()]
-                st.session_state.plan = create_study_plan(plan_topic, weak_list or None)
-                st.session_state.plan_subject = plan_topic
+        if st.button("Create plan", type="primary"):
+            if not plan_topic.strip():
+                _warn("Type a subject first.")
+            else:
+                with st.spinner("Building your plan..."):
+                    weak_list = [w.strip() for w in weak_text.split(",") if w.strip()]
+                    st.session_state.plan = create_study_plan(plan_topic, weak_list or None)
+                    st.session_state.plan_subject = plan_topic
+                    st.session_state.plan_is_fallback = _is_fallback_plan(
+                        plan_topic, st.session_state.plan
+                    )
 
         if st.session_state.get("plan"):
             subject = st.session_state.get("plan_subject", "")
             st.markdown(f"#### Your plan for {subject}")
+            if st.session_state.get("plan_is_fallback"):
+                _warn("I couldn't reach the AI, so this is only a basic starter plan. "
+                      "Wait a moment and tap Create plan again for a detailed one.")
             done = 0
             for i, module in enumerate(st.session_state.plan):
                 with st.container(border=True):
@@ -258,16 +384,16 @@ else:
                         done += 1
                     lc1, lc2 = st.columns(2)
                     with lc1:
-                        if st.button("📖 Learn this", key=f"learn_{subject}_{i}",
-                                     use_container_width=True):
+                        if st.button("Learn this", key=f"learn_{subject}_{i}",
+                                     icon=":material/menu_book:", use_container_width=True):
                             st.session_state.auto_prompt = (
                                 f"Explain this topic step by step: {module}"
                             )
                             st.session_state.page = "Chat"
                             st.rerun()
                     with lc2:
-                        if st.button("📝 Quiz me", key=f"quizme_{subject}_{i}",
-                                     use_container_width=True):
+                        if st.button("Quiz me", key=f"quizme_{subject}_{i}",
+                                     icon=":material/quiz:", use_container_width=True):
                             st.session_state.quiz_topic_input = module
                             st.session_state.page = "Quiz"
                             st.rerun()
@@ -275,26 +401,29 @@ else:
             progress_bar(f"{done} of {total} modules done", round(done * 100 / total))
             st.caption("Tip: tap Learn this on a module, then Quiz me to test yourself.")
         else:
-            empty_state("🗺️", "No plan yet", "Enter a subject above and tap Create Plan.")
+            empty_state("", "No plan yet", "Enter a subject above and tap Create plan.")
 
     elif st.session_state.page == "Quiz":
-        page_header("📝 Quiz Generator", "Test yourself on any topic")
+        page_header("Quiz generator", "Test yourself on any topic")
         qc1, qc2 = st.columns([3, 1])
         with qc1:
             topic = st.text_input("Topic to quiz on", key="quiz_topic_input")
         with qc2:
             diff = st.selectbox("Difficulty", ["Easy", "Medium", "Hard"])
-        if st.button("Generate Quiz", type="primary") and topic:
-            with st.spinner("Generating..."):
-                new_quiz = generate_quiz(topic, 3, diff)
-            # Forget answers picked in the previous quiz so they can't leak into this one
-            for stale in [k for k in st.session_state if k[:1] == "q" and k[1:].isdigit()]:
-                del st.session_state[stale]
-            st.session_state.current_quiz = new_quiz
-            st.session_state.quiz_topic = topic
-            st.session_state.quiz_saved = False
-            if not new_quiz:
-                st.error("⚠️ The quiz didn't generate properly. Please try again.")
+        if st.button("Generate quiz", type="primary"):
+            if not topic.strip():
+                _warn("Type a topic first.")
+            else:
+                with st.spinner("Generating..."):
+                    new_quiz = generate_quiz(topic, 3, diff)
+                # Forget answers picked in the previous quiz so they can't leak into this one
+                for stale in [k for k in st.session_state if k[:1] == "q" and k[1:].isdigit()]:
+                    del st.session_state[stale]
+                st.session_state.current_quiz = new_quiz
+                st.session_state.quiz_topic = topic
+                st.session_state.quiz_saved = False
+                if not new_quiz:
+                    _err("The quiz didn't generate properly. Please try again.")
 
         if st.session_state.get("current_quiz"):
             quiz = st.session_state.current_quiz
@@ -306,17 +435,17 @@ else:
                                    label_visibility="collapsed")
                 answers.append(q['options'].index(ans) if ans in q['options'] else -1)
 
-            if st.button("Submit Answers"):
+            if st.button("Submit answers"):
                 if -1 in answers:
-                    st.warning("Please answer every question before submitting.")
+                    _warn("Please answer every question before submitting.")
                 else:
                     correct_count = 0
                     for i, q in enumerate(quiz):
                         if answers[i] == q['correct_index']:
-                            st.success(f"Q{i+1}: Correct!")
+                            _ok(f"Q{i+1}: Correct!")
                             correct_count += 1
                         else:
-                            st.error(f"Q{i+1}: Wrong. {q['explanation']}")
+                            _err(f"Q{i+1}: Wrong. {q['explanation']}")
                     progress_bar(f"Score: {correct_count} of {len(quiz)}",
                                  round(correct_count * 100 / len(quiz)))
                     # Save the score once per quiz, not on every Submit click
@@ -332,10 +461,10 @@ else:
                         st.caption("Your score for this quiz was already saved.")
 
     elif st.session_state.page == "PDF Tutor":
-        page_header("📄 PDF Tutor", "Upload one PDF, then learn from it")
+        page_header("PDF tutor", "Upload one PDF, then learn from it")
         uploaded_file = st.file_uploader("Upload a PDF (one at a time, max 10MB)", type="pdf")
         if uploaded_file and uploaded_file.size > 10 * 1024 * 1024:
-            st.error("⚠️ This PDF is bigger than 10MB. Please upload a smaller one.")
+            _err("This PDF is bigger than 10MB. Please upload a smaller one.")
             uploaded_file = None
 
         if uploaded_file:
@@ -360,14 +489,14 @@ else:
         PDF_BUSY = "Couldn't get a reply right now. Please try again."
 
         if not uploaded_file:
-            empty_state("📄", "No PDF yet", "Upload a PDF above to start learning from it.")
+            empty_state("", "No PDF yet", "Upload a PDF above to start learning from it.")
         elif not pdf_text:
-            st.error("⚠️ I couldn't read any text in this PDF. Scanned or photo PDFs "
-                     "won't work. Try a typed PDF.")
+            _err("I couldn't read any text in this PDF. Scanned or photo PDFs "
+                 "won't work. Try a typed PDF.")
         else:
-            st.success(f"📄 {st.session_state.pdf_name} is ready")
+            _ok(f"{st.session_state.pdf_name} is ready")
             if len(pdf_text) >= 150000:
-                st.warning("This PDF is very long, so I'm only using the first part of it.")
+                _warn("This PDF is very long, so I'm only using the first part of it.")
 
             mode = st.radio(
                 "What do you want to do?",
@@ -382,13 +511,13 @@ else:
                     if st.button("Start", type="primary", use_container_width=True):
                         with st.spinner("Thinking of a question..."):
                             q = next_question(pdf_text, st.session_state.pdf_asked)
-                        if q:
+                        if not _pdf_failed(q):
                             st.session_state.pdf_question = q
                             st.session_state.pdf_asked.append(q)
                             st.session_state.pdf_feedback = ""
                             st.rerun()
                         else:
-                            st.error(PDF_BUSY)
+                            _err(PDF_BUSY)
                 else:
                     n = len(st.session_state.pdf_asked)
                     st.markdown(f"**Question {n}:** {st.session_state.pdf_question}")
@@ -407,23 +536,23 @@ else:
                                 fb = check_answer(
                                     pdf_text, st.session_state.pdf_question, my_answer
                                 )
-                            if fb:
+                            if not _pdf_failed(fb):
                                 st.session_state.pdf_feedback = fb
                             else:
-                                st.error(PDF_BUSY)
+                                _err(PDF_BUSY)
                         else:
-                            st.warning("Type your answer first.")
+                            _warn("Type your answer first.")
 
                     if next_clicked:
                         with st.spinner("Thinking of a question..."):
                             q = next_question(pdf_text, st.session_state.pdf_asked)
-                        if q:
+                        if not _pdf_failed(q):
                             st.session_state.pdf_question = q
                             st.session_state.pdf_asked.append(q)
                             st.session_state.pdf_feedback = ""
                             st.rerun()
                         else:
-                            st.error(PDF_BUSY)
+                            _err(PDF_BUSY)
 
                     if st.session_state.pdf_feedback:
                         st.markdown(st.session_state.pdf_feedback)
@@ -438,12 +567,12 @@ else:
                     if ask_text.strip():
                         with st.spinner("Reading the PDF..."):
                             reply = answer_from_pdf(pdf_text, ask_text)
-                        if reply:
+                        if not _pdf_failed(reply):
                             st.session_state.pdf_reply = reply
                         else:
-                            st.error(PDF_BUSY)
+                            _err(PDF_BUSY)
                     else:
-                        st.warning("Type what you want to know first.")
+                        _warn("Type what you want to know first.")
                 if st.session_state.pdf_reply:
                     st.markdown(st.session_state.pdf_reply)
 
@@ -451,23 +580,23 @@ else:
                 if st.button("Summarize PDF", type="primary", use_container_width=True):
                     with st.spinner("Summarizing..."):
                         summary = summarize_pdf(pdf_text)
-                    if summary:
+                    if not _pdf_failed(summary):
                         st.session_state.pdf_summary = summary
                     else:
-                        st.error(PDF_BUSY)
+                        _err(PDF_BUSY)
                 if st.session_state.pdf_summary:
                     st.markdown(st.session_state.pdf_summary)
 
     elif st.session_state.page == "Progress":
-        page_header("📊 Progress", "Your study stats at a glance")
+        page_header("Progress", "Your study stats at a glance")
         stats = get_progress_stats(st.session_state.user_id)
         c1, c2, c3 = st.columns(3)
         with c1:
-            stat_card("Minutes studied", stats["minutes"], "⏱️")
+            stat_card("Minutes studied", stats["minutes"])
         with c2:
-            stat_card("Quizzes taken", stats["quizzes"], "📝")
+            stat_card("Quizzes taken", stats["quizzes"])
         with c3:
-            stat_card("Average score", f"{stats['avg']}%", "🎯")
+            stat_card("Average score", f"{stats['avg']}%")
 
         st.markdown("#### Recent quizzes")
         if stats["recent"]:
@@ -475,10 +604,10 @@ else:
                 pct = round(r["score"] * 100 / r["total"]) if r["total"] else 0
                 progress_bar(f"{r['topic']} ({r['score']}/{r['total']})", pct)
         else:
-            empty_state("📝", "No quizzes yet", "Take one in the Quiz tab and your scores will show here.")
+            empty_state("", "No quizzes yet", "Take one in the Quiz tab and your scores will show here.")
 
     elif st.session_state.page == "Notes":
-        page_header("🗒️ Quick Notes", "Jot things down while you study")
+        page_header("Quick notes", "Jot things down while you study")
         notes_conn = get_db()
         notes_conn.execute(
             "CREATE TABLE IF NOT EXISTS notes ("
@@ -491,7 +620,7 @@ else:
             n_title = st.text_input("Title (optional)")
             n_body = st.text_area("Your note", height=150)
             saved = st.form_submit_button(
-                "💾 Save note", type="primary", use_container_width=True
+                "Save note", icon=":material/save:", type="primary", use_container_width=True
             )
         if saved:
             if n_body.strip():
@@ -506,9 +635,9 @@ else:
                     ),
                 )
                 notes_conn.commit()
-                st.success("Saved!")
+                _ok("Note saved.")
             else:
-                st.warning("Write something first.")
+                _warn("Write something first.")
 
         notes = notes_conn.execute(
             "SELECT id, title, body, created_at FROM notes WHERE user_id=? ORDER BY id DESC",
@@ -516,11 +645,11 @@ else:
         ).fetchall()
 
         if not notes:
-            empty_state("🗒️", "No notes yet", "Write your first note above and tap Save.")
+            empty_state("", "No notes yet", "Write your first note above and tap Save note.")
         for n in notes:
             with st.expander(f"{n[1]}  ·  {n[3]}"):
                 st.markdown(n[2])
-                if st.button("🗑️ Delete", key=f"del_note_{n[0]}"):
+                if st.button("Delete", key=f"del_note_{n[0]}", icon=":material/delete:"):
                     notes_conn.execute("DELETE FROM notes WHERE id=?", (n[0],))
                     notes_conn.commit()
                     st.rerun()
