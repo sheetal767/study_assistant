@@ -118,7 +118,7 @@ def _start_focus():
 
 
 def _sync_nav():
-    """Phone tab strip -> current page."""
+    """Phone menu -> current page."""
     st.session_state.page = st.session_state.nav_strip
 
 
@@ -243,11 +243,10 @@ else:
             st.button("Focus", key="tm_focus", icon=":material/center_focus_strong:",
                       on_click=_start_focus, use_container_width=True)
 
-    # PHONE NAVIGATION STRIP (hidden on desktop by CSS; the sidebar is used there)
+    # PHONE MENU (a dropdown; hidden on desktop by CSS, where the sidebar is used)
     st.session_state.nav_strip = st.session_state.page
     st.markdown('<span class="lumo-navmark"></span>', unsafe_allow_html=True)
-    st.radio("Go to page", PAGE_ORDER, key="nav_strip", horizontal=True,
-             label_visibility="collapsed", on_change=_sync_nav)
+    st.selectbox("Go to page", PAGE_ORDER, key="nav_strip", on_change=_sync_nav)
 
     # PAGES
     if st.session_state.page == "Start":
