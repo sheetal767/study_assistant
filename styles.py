@@ -265,6 +265,16 @@ footer {visibility: hidden;}
 }
 [data-testid="stMarkdownContainer"] a { color: var(--lumo-accent-text); }
 
+/* Page header (ui.page_header): subtitle sits on a flat plate so it stays readable over the Aurora */
+.stApp h1[style*="margin-bottom"] { padding: 0.25rem 0 0.25rem; }
+[data-testid="stMarkdownContainer"] h1[style*="margin-bottom"] + p {
+    display: inline-block;
+    background: var(--lumo-plate);
+    border-radius: var(--lumo-radius);
+    padding: 4px 10px;
+    margin: 4px 0 16px 0 !important;
+}
+
 /* Opening screen helpers (used by app.py) */
 .lumo-hero-title {
     font-family: var(--lumo-font-head);
@@ -409,6 +419,9 @@ div[data-testid="stPopoverBody"] {
     background: var(--lumo-plate-strong);
     border: 1px solid var(--lumo-border);
 }
+@media (max-width: 768px) {
+    div[data-testid="stPopover"] { left: 3.5rem; right: auto; }
+}
 
 /* ===== INPUTS ===== */
 div[data-baseweb="input"] > div,
@@ -462,11 +475,12 @@ div[role="radiogroup"] > label:has(input:checked) {
 
 button[data-baseweb="tab"] { font-weight: 600; min-height: 44px; }
 
-/* ===== PHONE NAVIGATION STRIP =====
-   app.py puts <span class="lumo-navmark"></span> right before a horizontal
-   st.radio. Hidden on desktop (sidebar is used); a scrolling tab strip on phones. */
+/* ===== PHONE / TABLET PAGE MENU =====
+   app.py puts <span class="lumo-navmark"></span> right before a "Go to page"
+   dropdown. Hidden on desktop, where the sidebar is used. Shown at 768px and
+   below, where Streamlit collapses the sidebar. */
 [data-testid="stElementContainer"]:has(.lumo-navmark) { display: none; }
-@media (min-width: 641px) {
+@media (min-width: 769px) {
     [data-testid="stElementContainer"]:has(.lumo-navmark) + [data-testid="stElementContainer"] {
         display: none;
     }
@@ -496,30 +510,6 @@ button[data-baseweb="tab"] { font-weight: 600; min-height: 44px; }
         button[kind="secondaryFormSubmit"], button[data-testid="stBaseButton-secondaryFormSubmit"]
     ) { min-height: 48px; }
     [data-testid="stChatMessage"] { padding: 10px 12px; }
-
-    [data-testid="stElementContainer"]:has(.lumo-navmark) + [data-testid="stElementContainer"] div[role="radiogroup"] {
-        flex-wrap: nowrap;
-        overflow-x: auto;
-        gap: 6px;
-        padding-bottom: 4px;
-    }
-    [data-testid="stElementContainer"]:has(.lumo-navmark) + [data-testid="stElementContainer"] div[role="radiogroup"] > label {
-        flex: 0 0 auto;
-        white-space: nowrap;
-        min-height: 44px;
-        margin-bottom: 0;
-        padding: 0 14px;
-        display: flex;
-        align-items: center;
-    }
-    [data-testid="stElementContainer"]:has(.lumo-navmark) + [data-testid="stElementContainer"] div[role="radiogroup"] > label > div:first-child {
-        display: none;
-    }
-    [data-testid="stElementContainer"]:has(.lumo-navmark) + [data-testid="stElementContainer"] div[role="radiogroup"] > label:has(input:checked) {
-        background: var(--lumo-accent-fill);
-        border-color: var(--lumo-accent-fill);
-        color: #ffffff;
-    }
 }
 
 @media (prefers-reduced-motion: reduce) {
