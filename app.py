@@ -42,9 +42,10 @@ if "page" not in st.session_state: st.session_state.page = PAGE_ORDER[0]
 if "chat_id" not in st.session_state: st.session_state.chat_id = None
 if "messages" not in st.session_state: st.session_state.messages = []
 if "timer_running" not in st.session_state: st.session_state.timer_running = False
-if "time_left" not in st.session_state: st.session_state.time_left = 25 * 60
-if "timer_total" not in st.session_state: st.session_state.timer_total = 25
-if "focus_mode" not in st.session_state: st.session_state.focus_mode = False
+if "time_left" not in st.session_state: st.session_state.time_left = 30 * 60
+if "timer_total" not in st.session_state: st.session_state.timer_total = 30
+if "timer_unlimited" not in st.session_state: st.session_state.timer_unlimited = False
+if "timer_elapsed" not in st.session_state: st.session_state.timer_elapsed = 0
 if "pdf_key" not in st.session_state: st.session_state.pdf_key = None
 if "pdf_name" not in st.session_state: st.session_state.pdf_name = ""
 if "pdf_text" not in st.session_state: st.session_state.pdf_text = ""
@@ -85,36 +86,67 @@ def _is_fallback_plan(topic, plan):
 # --- TIMER FRAGMENT (Runs without reloading whole page) ---
 @st.fragment(run_every=1)
 def render_timer():
-    if st.session_state.timer_running and st.session_state.time_left > 0:
-        st.session_state.time_left -= 1
-        if st.session_state.time_left == 0:
-            st.session_state.timer_running = False
-            log_study_time(st.session_state.user_id, st.session_state.timer_total)
-            st.toast("Time's up! Take a break.")
-    mins, secs = divmod(st.session_state.time_left, 60)
-    st.markdown(f"<h1 style='text-align: center; font-size: 3rem;'>{mins:02d}:{secs:02d}</h1>",
+    if st.session_state.timer_running:
+        st.session_state.timer_elapsed += 1
+        if not st.session_state.timer_unlimited:
+            st.session_state.time_left -= 1
+            if st.session_state.time_left <= 0:
+                st.session_state.time_left = 0
+                st.session_state.timer_running = False
+                st.session_state.timer_elapsed = 0
+                log_study_time(st.session_state.user_id, st.session_state.timer_total)
+                st.toast("Time's up! Take a break.")
+
+    if st.session_state.timer_unlimited:
+        shown = st.session_state.timer_elapsed
+    else:
+        shown = st.session_state.time_left
+
+    hrs, rem = divmod(shown, 3600)
+    mins, secs = divmod(rem, 60)
+    if hrs:
+        text = f"{hrs}:{mins:02d}:{secs:02d}"
+    else:
+        text = f"{mins:02d}:{secs:02d}"
+    st.markdown(f"<h1 style='text-align: center; font-size: 3rem;'>{text}</h1>",
                 unsafe_allow_html=True)
 
 
 # --- TIMER BUTTON CALLBACKS ---
 def _set_timer(minutes):
-    st.session_state.update(
-        time_left=minutes * 60, timer_running=False, timer_total=minutes
-    )
+    """minutes = 30 or 60, or None for unlimited (counts up)."""
+    if minutes is None:
+        st.session_state.update(
+            timer_unlimited=True, timer_running=False,
+            timer_elapsed=0, time_left=0, timer_total=0,
+        )
+    else:
+        st.session_state.update(
+            timer_unlimited=False, timer_running=False,
+            timer_elapsed=0, time_left=minutes * 60, timer_total=minutes,
+        )
 
 
 def _toggle_timer():
-    if st.session_state.time_left <= 0:
-        st.session_state.time_left = 25 * 60
-        st.session_state.timer_total = 25
+    if not st.session_state.timer_unlimited and st.session_state.time_left <= 0:
+        st.session_state.time_left = 30 * 60
+        st.session_state.timer_total = 30
+        st.session_state.timer_elapsed = 0
     st.session_state.timer_running = not st.session_state.timer_running
 
 
-def _start_focus():
-    if st.session_state.time_left <= 0:
-        st.session_state.time_left = 25 * 60
-        st.session_state.timer_total = 25
-    st.session_state.update(focus_mode=True, timer_running=True)
+def _finish_timer():
+    """Save the minutes studied so far and reset the timer."""
+    minutes = st.session_state.timer_elapsed // 60
+    if minutes > 0:
+        log_study_time(st.session_state.user_id, minutes)
+        st.toast(f"Saved {minutes} min of study time.")
+    else:
+        st.toast("Under 1 minute, nothing saved.")
+    st.session_state.timer_running = False
+    st.session_state.timer_elapsed = 0
+    if not st.session_state.timer_unlimited:
+        st.session_state.time_left = st.session_state.timer_total * 60
 
 
 def _sync_nav():
@@ -177,18 +209,6 @@ def show_login():
 if not st.session_state.user_id:
     show_login()
 else:
-    # FOCUS MODE WRAPPER
-    if st.session_state.focus_mode:
-        st.markdown(
-            "<style>.block-container{max-width:100%!important; padding:1.5rem 1rem!important;} "
-            "section[data-testid='stSidebar'] {display: none;}</style>",
-            unsafe_allow_html=True,
-        )
-        st.button("Exit focus mode", icon=":material/close:",
-                  on_click=lambda: st.session_state.update(focus_mode=False))
-        render_timer()
-        st.stop()
-
     if st.session_state.page not in PAGE_ORDER:
         st.session_state.page = PAGE_ORDER[0]
 
@@ -227,11 +247,12 @@ else:
         render_timer()
         p1, p2, p3 = st.columns(3)
         with p1:
-            st.button("25m", key="tm_25", on_click=_set_timer, args=(25,), use_container_width=True)
+            st.button("30m", key="tm_30", on_click=_set_timer, args=(30,), use_container_width=True)
         with p2:
-            st.button("15m", key="tm_15", on_click=_set_timer, args=(15,), use_container_width=True)
+            st.button("60m", key="tm_60", on_click=_set_timer, args=(60,), use_container_width=True)
         with p3:
-            st.button("5m", key="tm_5", on_click=_set_timer, args=(5,), use_container_width=True)
+            st.button("Unlimited", key="tm_inf", on_click=_set_timer, args=(None,),
+                      use_container_width=True)
         b1, b2 = st.columns(2)
         with b1:
             st.button(
@@ -240,8 +261,8 @@ else:
                 on_click=_toggle_timer, use_container_width=True,
             )
         with b2:
-            st.button("Focus", key="tm_focus", icon=":material/center_focus_strong:",
-                      on_click=_start_focus, use_container_width=True)
+            st.button("Finish", key="tm_finish", icon=":material/check:",
+                      on_click=_finish_timer, use_container_width=True)
 
     # PHONE MENU (a dropdown; hidden on desktop by CSS, where the sidebar is used)
     st.session_state.nav_strip = st.session_state.page
