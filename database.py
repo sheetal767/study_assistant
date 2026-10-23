@@ -55,8 +55,15 @@ def save_chat_message(chat_id, role, content):
 def get_chat_history(user_id):
     conn = get_db()
     return conn.execute(
-        "SELECT * FROM chats WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
+        "SELECT * FROM chats WHERE user_id = ? ORDER BY created_at DESC LIMIT 15", (user_id,)
     ).fetchall()
+
+
+def get_chat_messages(chat_id):
+    """Pulls all messages for a specific chat to display in the UI."""
+    conn = get_db()
+    rows = conn.execute("SELECT role, content FROM messages WHERE chat_id = ? ORDER BY id ASC", (chat_id,)).fetchall()
+    return [{"role": r["role"], "content": r["content"]} for r in rows]
 
 
 def log_study_time(user_id, minutes):
