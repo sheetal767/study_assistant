@@ -3,7 +3,7 @@ import time
 import os
 from datetime import datetime
 from database import (
-    verify_user, create_user, get_chat_history, get_db,
+    verify_user, create_user, get_chat_history, get_db, get_chat_messages,
     save_chat_message, log_study_time, save_quiz_score, get_progress_stats,
 )
 from styles import apply_lumo_styles, CARD_CSS
@@ -256,6 +256,16 @@ else:
                 st.session_state.page = p
                 st.rerun()
 
+        # --- NEW: CHAT HISTORY IN SIDEBAR ---
+        st.markdown("---")
+        st.markdown("<span style='color:var(--lumo-muted); font-size:0.75rem; font-weight:600; text-transform:uppercase;'>Recent Chats</span>", unsafe_allow_html=True)
+        for chat in get_chat_history(st.session_state.user_id):
+            if st.button(chat["title"][:25] + "...", key=f"sh_{chat['id']}", use_container_width=True):
+                st.session_state.chat_id = chat["id"]
+                st.session_state.messages = get_chat_messages(chat["id"])
+                st.session_state.page = "Chat"
+                st.rerun()
+
         st.markdown("---")
         if st.button("Log out", icon=":material/logout:", use_container_width=True):
             st.session_state.clear()
@@ -349,6 +359,31 @@ else:
         if not history and not prompt:
             empty_state("", "Start a conversation",
                         "Ask about any topic above and I'll explain it step by step.")
+            st.caption("Or tap a question to begin")
+            starters = [
+                "Explain database normalization step by step",
+                "Explain recursion with a simple analogy",
+                "What is the difference between TCP and UDP?",
+                "Summarize how photosynthesis works",
+            ]
+            st_cols = st.columns(2)
+            for i, q in enumerate(starters):
+                with st_cols[i % 2]:
+                    if st.button(q, key=f"starter_{i}", use_container_width=True):
+                        st.session_state.auto_prompt = q
+                        st.rerun()
+            
+            # --- NEW: CHAT HISTORY ON MOBILE EMPTY STATE ---
+            chat_hist = get_chat_history(st.session_state.user_id)
+            if chat_hist:
+                st.markdown("<div style='margin-top: 3rem; margin-bottom: 1rem; text-align: center; color: var(--lumo-muted); font-weight: 600; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.05em;'>Continue a previous chat</div>", unsafe_allow_html=True)
+                for chat in chat_hist[:5]:
+                    if st.button(f"🕒 {chat['title']}", key=f"mh_{chat['id']}", use_container_width=True):
+                        st.session_state.chat_id = chat["id"]
+                        st.session_state.messages = get_chat_messages(chat["id"])
+                        st.session_state.page = "Chat"
+                        st.rerun()
+
         else:
             st.caption("Newest messages appear first.")
 
@@ -632,6 +667,26 @@ else:
     elif st.session_state.page == "Progress":
         page_header("Progress", "Your study stats at a glance")
         stats = get_progress_stats(st.session_state.user_id)
+        if stats["quizzes"]:
+            try:
+                avg_pct = max(0, min(100, round(float(stats["avg"] or 0))))
+            except (TypeError, ValueError):
+                avg_pct = 0
+            if avg_pct >= 80:
+                ring_title, ring_note = "Excellent work", "Your scores are strong. Try a harder difficulty next."
+            elif avg_pct >= 60:
+                ring_title, ring_note = "Solid progress", "A few more quizzes will lift your average."
+            else:
+                ring_title, ring_note = "Keep going", "Retake quizzes on your weak topics to build confidence."
+            st.markdown(
+                '<div class="lumo-ring-wrap">'
+                f'<div class="lumo-ring" style="--pct:{avg_pct}"><div class="lumo-ring-inner">'
+                f'<span class="lumo-ring-num">{avg_pct}%</span>'
+                '<span class="lumo-ring-label">average score</span></div></div>'
+                f'<div class="lumo-ring-side"><div class="lumo-ring-title">{ring_title}</div>'
+                f'<p>{ring_note}</p></div></div>',
+                unsafe_allow_html=True,
+            )
         c1, c2, c3 = st.columns(3)
         with c1:
             stat_card("Minutes studied", stats["minutes"])
