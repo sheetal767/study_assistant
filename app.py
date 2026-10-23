@@ -19,6 +19,27 @@ st.set_page_config(page_title="Lumo", layout="wide")
 st.markdown(CARD_CSS, unsafe_allow_html=True)
 apply_lumo_styles()
 
+
+# --- LAYOUT: keep content in a centred column instead of stretching edge to edge ---
+def _set_width(px):
+    """Centre the main content and cap its width (px)."""
+    st.markdown(
+        f"""
+        <style>
+        [data-testid="stMainBlockContainer"],
+        .main .block-container,
+        section.main > div.block-container {{
+            max-width: {px}px !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            width: 100% !important;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 # Set to False to land straight in Chat after login (no Start page).
 SHOW_START_PAGE = True
 
@@ -161,11 +182,12 @@ def _go(page):
 
 # --- OPENING SCREEN: LOGIN / SIGN UP ---
 def show_login():
+    _set_width(460)
     st.markdown(
         """
-        <div style="margin: 6vh 0 24px 0">
+        <div class="lumo-login-hero">
             <div role="heading" aria-level="1" class="lumo-hero-title">Lumo</div>
-            <div class="lumo-card" style="max-width:560px;padding:12px 16px;margin:0">
+            <div class="lumo-card" style="padding:12px 16px">
                 <p class="lumo-lede">Lumo explains topics, builds study plans, quizzes you,
                 and answers questions from a PDF you upload.</p>
             </div>
@@ -173,8 +195,7 @@ def show_login():
         """,
         unsafe_allow_html=True,
     )
-    form_col, _ = st.columns([2, 3])
-    with form_col:
+    if True:
         with st.container(border=True):
             tab1, tab2 = st.tabs(["Log in", "Create account"])
             with tab1:
@@ -269,7 +290,8 @@ else:
     st.markdown('<span class="lumo-navmark"></span>', unsafe_allow_html=True)
     st.selectbox("Go to page", PAGE_ORDER, key="nav_strip", on_change=_sync_nav)
 
-    # PAGES
+    # PAGES (centred column; the two card-grid pages get a little more room)
+    _set_width(980 if st.session_state.page in ("Start", "Progress") else 760)
     if st.session_state.page == "Start":
         page_header(f"Welcome back, {st.session_state.username}", "Pick where to start.")
         s1, s2, s3 = st.columns(3)
