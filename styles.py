@@ -175,11 +175,11 @@ _AURORA_HTML = """
 """
 
 # ---------------------------------------------------------------------------
-# APP THEME (Lumo, option A: indigo accent, flat surfaces, Newsreader headings)
+# APP THEME (Lumo: indigo accent, frosted-glass surfaces, Newsreader headings)
 # Layered over the Aurora. Nothing below changes the Aurora's look or motion.
 # Body text keeps Streamlit's own Source Sans (see .streamlit/config.toml).
 # ---------------------------------------------------------------------------
-_HOLDER_VERSION = "3"  # bump this to make already-open tabs replace old CSS
+_HOLDER_VERSION = "4"  # bump this to make already-open tabs replace old CSS
 
 _FONT_LINK = (
     '<link rel="stylesheet" '
@@ -319,7 +319,7 @@ footer {visibility: hidden;}
     margin: 0;
 }
 
-/* ===== SURFACES (flat, no blur, no shadow) ===== */
+/* ===== SURFACES (base; the POLISH LAYER at the end adds the glass finish) ===== */
 .lumo-card, .sf-card,
 [data-testid="stChatMessage"],
 [data-testid="stExpander"],
@@ -540,6 +540,174 @@ button[data-baseweb="tab"] { font-weight: 600; min-height: 44px; }
     ) { min-height: 48px; }
     [data-testid="stChatMessage"] { padding: 10px 12px; }
 }
+
+/* =====================================================================
+   POLISH LAYER: frosted glass, aurora-coloured accents, softer shapes.
+   Sits on top of everything above. To undo the whole look, delete from
+   here to the "END POLISH LAYER" marker.
+   ===================================================================== */
+:root {
+    --lumo-radius: 12px;
+    --lumo-glass: rgba(6, 12, 22, 0.66);
+    --lumo-glass-strong: rgba(6, 12, 22, 0.82);
+    --lumo-glass-edge: rgba(148, 163, 255, 0.18);
+    --lumo-aurora-line: linear-gradient(90deg, #4ade80 0%, #2dd4bf 50%, #a78bfa 100%);
+    --lumo-accent-grad: linear-gradient(135deg, #4f46e5 0%, #6d4cf0 100%);
+    --lumo-accent-grad-hover: linear-gradient(135deg, #4338ca 0%, #5b3fe0 100%);
+    --lumo-lift: 0 10px 30px rgba(0, 0, 0, 0.30);
+}
+::selection { background: rgba(99, 102, 241, 0.45); color: #fff; }
+
+/* Glass surfaces: the aurora shows softly through, text stays on a dark plate */
+.lumo-card, .sf-card,
+[data-testid="stChatMessage"],
+[data-testid="stExpander"],
+[data-testid="stForm"],
+[data-testid="stMetric"],
+[data-testid="stVerticalBlockBorderWrapper"]:not(:has([data-testid="stPopover"])) {
+    background: var(--lumo-glass);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    backdrop-filter: blur(14px) saturate(140%);
+    border: 1px solid var(--lumo-glass-edge);
+    border-radius: var(--lumo-radius);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), var(--lumo-lift);
+}
+.sf-card { transition: border-color 0.15s ease; }
+.sf-card:hover { border-color: rgba(129, 140, 248, 0.5); }
+.sf-card h4 { margin-bottom: 4px; }
+
+/* Messages: Lumo's replies sit on glass, yours carry an indigo tint */
+[data-testid="stChatMessage"] { padding: 14px 18px; margin-bottom: 10px; }
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]),
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.24), rgba(6, 12, 22, 0.70));
+    border-left: 3px solid var(--lumo-accent-text);
+}
+
+/* Chat box */
+[data-testid="stChatInput"] {
+    background: var(--lumo-glass-strong) !important;
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border: 1px solid var(--lumo-glass-edge) !important;
+    border-radius: 16px !important;
+    box-shadow: var(--lumo-lift);
+}
+button[data-testid="stChatInputSubmitButton"] {
+    background: var(--lumo-accent-grad) !important;
+    color: #fff !important;
+    border-radius: 10px !important;
+}
+button[data-testid="stChatInputSubmitButton"]:disabled { opacity: 0.4; }
+
+/* Buttons: soft indigo gradient, gentle lift on hover */
+.stApp :is(
+    button[kind="primary"], button[data-testid="stBaseButton-primary"],
+    button[kind="primaryFormSubmit"], button[data-testid="stBaseButton-primaryFormSubmit"]
+) {
+    background: var(--lumo-accent-grad) !important;
+    border-color: transparent !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.stApp :is(
+    button[kind="primary"], button[data-testid="stBaseButton-primary"],
+    button[kind="primaryFormSubmit"], button[data-testid="stBaseButton-primaryFormSubmit"]
+):hover:not(:disabled) {
+    background: var(--lumo-accent-grad-hover) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 22px rgba(79, 70, 229, 0.38) !important;
+}
+.stApp :is(
+    button[kind="primary"], button[data-testid="stBaseButton-primary"],
+    button[kind="primaryFormSubmit"], button[data-testid="stBaseButton-primaryFormSubmit"]
+):active:not(:disabled) { transform: translateY(0); box-shadow: none !important; }
+.stApp :is(button[kind="secondary"], button[data-testid="stBaseButton-secondary"]) {
+    background: var(--lumo-glass) !important;
+    border-color: var(--lumo-glass-edge) !important;
+}
+.stApp :is(button[kind="secondary"], button[data-testid="stBaseButton-secondary"]):hover:not(:disabled) {
+    background: rgba(99, 102, 241, 0.18) !important;
+    border-color: var(--lumo-accent-text) !important;
+}
+.stApp button:disabled { opacity: 0.45; }
+
+/* Sidebar: glass panel, the active page glows softly */
+[data-testid="stSidebar"] {
+    background: rgba(2, 5, 11, 0.66) !important;
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+}
+[data-testid="stSidebar"] :is(button[kind="primary"], button[data-testid="stBaseButton-primary"]) {
+    box-shadow: 0 6px 18px rgba(79, 70, 229, 0.30) !important;
+}
+
+/* Tabs: aurora underline marks the open tab */
+div[data-baseweb="tab-highlight"] {
+    background: var(--lumo-aurora-line) !important;
+    height: 3px !important;
+    border-radius: 3px;
+}
+div[data-baseweb="tab-border"] { background: var(--lumo-border) !important; }
+button[data-baseweb="tab"][aria-selected="true"] { color: var(--lumo-text) !important; }
+
+/* Progress and numbers (Progress page) */
+[data-testid="stProgress"] [role="progressbar"] > div > div { background: var(--lumo-aurora-line) !important; }
+[data-testid="stMetric"] { padding: 14px 18px; }
+[data-testid="stMetricLabel"] p { color: var(--lumo-muted); }
+[data-testid="stMetricValue"] { font-family: var(--lumo-font-head); font-weight: 600; }
+
+/* Quiz answers: the chosen row gets an indigo edge */
+div[role="radiogroup"] > label {
+    background: var(--lumo-glass);
+    border-color: var(--lumo-glass-edge);
+    padding: 10px 14px;
+}
+div[role="radiogroup"] > label:has(input:checked) {
+    box-shadow: inset 3px 0 0 var(--lumo-accent-text);
+}
+
+/* Upload box */
+[data-testid="stFileUploaderDropzone"] {
+    background: var(--lumo-glass);
+    border: 1px dashed rgba(165, 176, 198, 0.55);
+    border-radius: var(--lumo-radius);
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+[data-testid="stFileUploaderDropzone"]:hover {
+    border-color: var(--lumo-accent-text);
+    background: rgba(99, 102, 241, 0.12);
+}
+
+/* The one memorable moment: the Lumo wordmark glows like the sky behind it */
+.lumo-hero-title {
+    font-size: 4rem;
+    letter-spacing: -0.03em;
+    background: linear-gradient(180deg, #ffffff 25%, #b9f5dc 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    filter: drop-shadow(0 0 28px rgba(45, 212, 191, 0.28));
+}
+.lumo-login-hero .lumo-card { padding: 18px 22px; }
+.lumo-login-hero .lumo-lede { color: var(--lumo-muted); }
+
+/* Lighter effects on phones (smoother scrolling, less battery) */
+@media (max-width: 640px) {
+    .lumo-hero-title { font-size: 2.75rem; }
+    .lumo-card, .sf-card, [data-testid="stChatMessage"], [data-testid="stExpander"],
+    [data-testid="stForm"], [data-testid="stMetric"], [data-testid="stChatInput"],
+    [data-testid="stSidebar"],
+    [data-testid="stVerticalBlockBorderWrapper"]:not(:has([data-testid="stPopover"])) {
+        -webkit-backdrop-filter: blur(8px);
+        backdrop-filter: blur(8px);
+    }
+}
+/* Browsers without blur support get a more solid plate so text stays readable */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    :root { --lumo-glass: rgba(6, 12, 22, 0.88); --lumo-glass-strong: rgba(6, 12, 22, 0.92); }
+}
+/* ===== END POLISH LAYER ===== */
 
 @media (prefers-reduced-motion: reduce) {
     .stApp * { transition: none !important; }
