@@ -179,7 +179,7 @@ _AURORA_HTML = """
 # Layered over the Aurora. Nothing below changes the Aurora's look or motion.
 # Body text keeps Streamlit's own Source Sans (see .streamlit/config.toml).
 # ---------------------------------------------------------------------------
-_HOLDER_VERSION = "2"  # bump this to make already-open tabs replace old CSS
+_HOLDER_VERSION = "3"  # bump this to make already-open tabs replace old CSS
 
 _FONT_LINK = (
     '<link rel="stylesheet" '
@@ -215,7 +215,9 @@ footer {visibility: hidden;}
 /* ===== LAYOUT ===== */
 .stApp { color: var(--lumo-text); }
 .block-container {
-    max-width: 1040px;
+    max-width: 760px;               /* centred reading column (app.py can widen per page) */
+    margin-left: auto;
+    margin-right: auto;
     padding: 2.5rem 1.5rem 2rem;
 }
 [data-testid="stSidebar"] {
@@ -275,7 +277,31 @@ footer {visibility: hidden;}
     margin: 4px 0 16px 0 !important;
 }
 
+/* Page headers are centred in the column, like the Claude home screen */
+[data-testid="stMarkdownContainer"]:has(> h1[style*="margin-bottom"]),
+[data-testid="stMarkdownContainer"]:has(h1[style*="margin-bottom"]) { text-align: center; }
+[data-testid="stMarkdownContainer"] h1[style*="margin-bottom"] + p { margin-left: auto; margin-right: auto; }
+
+/* Chat box: compact, rounded, same width as the column */
+[data-testid="stChatInput"] {
+    border-radius: 16px !important;
+    max-width: 100%;
+    background: var(--lumo-plate-strong) !important;
+    border: 1px solid var(--lumo-border-input) !important;
+}
+[data-testid="stChatInput"] > div,
+[data-testid="stChatInput"] div[data-baseweb] {
+    background: transparent !important;
+    border: none !important;
+    border-radius: 16px !important;
+}
+[data-testid="stChatInput"] textarea { font-size: 1rem !important; }
+
 /* Opening screen helpers (used by app.py) */
+.lumo-login-hero { text-align: center; margin: 9vh 0 24px 0; }
+.lumo-login-hero .lumo-hero-title { text-align: center; }
+.lumo-login-hero .lumo-card { margin: 0 auto; max-width: 100%; }
+.lumo-login-hero .lumo-lede { text-align: center; margin: 0 auto; }
 .lumo-hero-title {
     font-family: var(--lumo-font-head);
     font-weight: 600;
@@ -503,6 +529,9 @@ button[data-baseweb="tab"] { font-weight: 600; min-height: 44px; }
     .stApp h1:not([style*="font-size"]) { font-size: 1.75rem !important; line-height: 1.21 !important; }
     .stApp h2, .stApp h3, .stApp h4 { font-size: 1.125rem !important; line-height: 1.44 !important; }
     .lumo-hero-title { font-size: 2.5rem; line-height: 1.1; }
+    .lumo-login-hero { margin: 4vh 0 16px 0; }
+    .lumo-login-hero .lumo-card { padding: 12px 14px !important; }
+    [data-testid="stChatInput"] { border-radius: 14px !important; }
     .stApp :is(
         button[kind="primary"], button[data-testid="stBaseButton-primary"],
         button[kind="primaryFormSubmit"], button[data-testid="stBaseButton-primaryFormSubmit"],
