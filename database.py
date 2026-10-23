@@ -98,8 +98,3 @@ def get_progress_stats(user_id):
 
 
 init_db()
-```<FollowUp label="How do I connect this file to the front end?"/>
-<ElicitationsGroup>
-<FollowUp label="What happens if I forget to call conn.commit()?"/>
-<FollowUp label="Is bcrypt the best way to hash passwords here?"/>
-</ElicitationsGroup>
