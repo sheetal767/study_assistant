@@ -61,6 +61,8 @@ if not os.path.exists("uploads"):
 if "user_id" not in st.session_state: st.session_state.user_id = None
 if "username" not in st.session_state: st.session_state.username = None
 if "page" not in st.session_state: st.session_state.page = PAGE_ORDER[0]
+if "last_page" not in st.session_state: st.session_state.last_page = PAGE_ORDER[0]
+if "page_history" not in st.session_state: st.session_state.page_history = []
 if "chat_id" not in st.session_state: st.session_state.chat_id = None
 if "messages" not in st.session_state: st.session_state.messages = []
 if "timer_running" not in st.session_state: st.session_state.timer_running = False
@@ -171,11 +173,6 @@ def _finish_timer():
         st.session_state.time_left = st.session_state.timer_total * 60
 
 
-def _sync_nav():
-    """Phone menu -> current page."""
-    st.session_state.page = st.session_state.nav_strip
-
-
 def _go(page):
     st.session_state.page = page
     st.rerun()
@@ -240,6 +237,12 @@ else:
     if st.session_state.page not in PAGE_ORDER:
         st.session_state.page = PAGE_ORDER[0]
 
+    # Remember where the user came from (powers the Back button)
+    if st.session_state.page != st.session_state.last_page:
+        st.session_state.page_history.append(st.session_state.last_page)
+        st.session_state.page_history = st.session_state.page_history[-20:]
+        st.session_state.last_page = st.session_state.page
+
     # SIDEBAR
     with st.sidebar:
         _uname = str(st.session_state.username)
@@ -252,6 +255,15 @@ else:
             '<div class="lumo-user-name">' + _html.escape(_uname) + '</div></div></div>',
             unsafe_allow_html=True,
         )
+        if st.session_state.page_history:
+            if st.button("Back", icon=":material/arrow_back:", use_container_width=True,
+                         key="nav_back"):
+                prev = st.session_state.page_history.pop()
+                if prev not in PAGE_ORDER:
+                    prev = PAGE_ORDER[0]
+                st.session_state.page = prev
+                st.session_state.last_page = prev
+                st.rerun()
         if st.button("New chat", icon=":material/add:", use_container_width=True):
             st.session_state.chat_id = None
             st.session_state.messages = []
@@ -300,11 +312,6 @@ else:
         with b2:
             st.button("Finish", key="tm_finish", icon=":material/check:",
                       on_click=_finish_timer, use_container_width=True)
-
-    # PHONE MENU (a dropdown; hidden on desktop by CSS, where the sidebar is used)
-    st.session_state.nav_strip = st.session_state.page
-    st.markdown('<span class="lumo-navmark"></span>', unsafe_allow_html=True)
-    st.selectbox("Go to page", PAGE_ORDER, key="nav_strip", on_change=_sync_nav)
 
     # PAGES (centred column; the two card-grid pages get a little more room)
     _set_width(980 if st.session_state.page in ("Start", "Progress") else 760)
